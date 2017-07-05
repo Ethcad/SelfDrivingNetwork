@@ -91,7 +91,7 @@ def get_data():
     image_list = []
 
     # Get image file paths and steering angles from CSV
-    with open('data/labels.csv', 'r') as csv_file:
+    with open("data/labels.csv") as csv_file:
         filename_reader = csv.reader(csv_file)
         for row in filename_reader:
             steering_angles.append(float(row[1]))
