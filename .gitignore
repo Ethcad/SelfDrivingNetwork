@@ -1,2 +1,6 @@
 # Stuff added automatically by PyCharm
 .idea
+__pycache__
+
+# Heavyweight models folder
+model

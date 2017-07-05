@@ -9,6 +9,24 @@ from skimage.io import imread
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
+def infer_steering_angle(classifier, image):
+    output = classifier.predict(
+        x=image,
+        batch_size=1
+    )
+    for angle in output:
+        return angle
+
+
+def infer(classifier):
+    path = "/home/brendon/DeepLearning/SelfDrivingNetwork/data/1542.png"
+    image_reversed = imread(path).astype(np.float32)
+    image_unlayered = np.transpose(image_reversed, (1, 0, 2))
+    image = np.reshape(image_unlayered, [1, -1, 480, 3])
+    angle = infer_steering_angle(classifier, image)
+    print("Steering angle %f for image %s." % (angle, path))
+
+
 def cnn_model_fn(features, labels, mode):
     conv1 = tf.layers.conv2d(
         inputs=features,
@@ -24,36 +42,22 @@ def cnn_model_fn(features, labels, mode):
         strides=2
     )
 
-    conv2 = tf.layers.conv2d(
-        inputs=pool1,
-        filters=64,
-        kernel_size=5,
-        padding="same",
-        activation=tf.nn.relu
-    )
-
-    pool2 = tf.layers.max_pooling2d(
-        inputs=conv2,
-        pool_size=2,
-        strides=2
-    )
-
-    pool2_flat = tf.reshape(pool2, [-1, 1382400])
+    pool1_flat = tf.reshape(pool1, [-1, 2764800])
 
     dense1 = tf.layers.dense(
-        inputs=pool2_flat,
-        units=256,
+        inputs=pool1_flat,
+        units=128,
         activation=tf.nn.relu
     )
 
-    dropout = tf.layers.dropout(
-        inputs=dense1,
-        rate=0.4,
-        training=mode == learn.ModeKeys.TRAIN
-    )
+    # dropout = tf.layers.dropout(
+    #     inputs=dense1,
+    #     rate=0.4,
+    #     training=mode == learn.ModeKeys.TRAIN
+    # )
 
     dense2 = tf.layers.dense(
-        inputs=dropout,
+        inputs=dense1,
         units=1,
         activation=tf.nn.relu
     )
@@ -73,7 +77,7 @@ def cnn_model_fn(features, labels, mode):
         train_op = tf.contrib.layers.optimize_loss(
             loss=loss,
             global_step=tf.contrib.framework.get_global_step(),
-            learning_rate=0.001,
+            learning_rate=0.0001,
             optimizer="SGD"
         )
 
@@ -85,16 +89,16 @@ def cnn_model_fn(features, labels, mode):
     )
 
 
-def get_data():
+def get_data(csv_path):
     # Initialize arrays of data
     steering_angles = []
     image_list = []
 
     # Get image file paths and steering angles from CSV
-    with open("data/labels.csv") as csv_file:
+    with open(csv_path) as csv_file:
         filename_reader = csv.reader(csv_file)
         for row in filename_reader:
-            steering_angles.append(float(row[1]))
+            steering_angles.append((float(row[1]) * 10) + 1)
             image_list.append(imread(row[0]))
     labels = np.array(steering_angles, dtype=np.float32)
 
@@ -110,7 +114,7 @@ def get_data():
 
 def main(_):
     # Gather data
-    images, labels = get_data()
+    images, labels = get_data("./data/labels.csv")
 
     # Create the estimator
     classifier = learn.Estimator(
@@ -123,8 +127,10 @@ def main(_):
         x=images,
         y=labels,
         batch_size=10,
-        steps=200
+        steps=10
     )
+
+    infer(classifier)
 
 
 if __name__ == "__main__":
