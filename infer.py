@@ -1,42 +1,16 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
-import tensorflow as tf
 import numpy as np
 
-from tensorflow.contrib import learn
+from keras.models import load_model
 from skimage.io import imread
-from cnn import cnn_model_fn
+from sys import argv
 
-tf.logging.set_verbosity(tf.logging.FATAL)
+model = load_model("./%s" % argv[1])
 
-
-def infer_steering_angle(classifier, image):
-    output = classifier.predict(
-        x=image,
-        batch_size=1
-    )
-    for angle in output:
-        return angle
-
-
-def import_model():
-    # Load estimator
-    classifier = learn.Estimator(
-        model_fn=cnn_model_fn,
-        model_dir="/tmp/network2"
-    )
-    return classifier
-
-
-def main(argv):
-    classifier = import_model()
-    for path in argv[1:]:
-        image_reversed = imread(path).astype(np.float32)
-        image_unlayered = np.transpose(image_reversed, (1, 0, 2))
-        image = np.reshape(image_unlayered, [1, -1, 480, 3])
-        angle = infer_steering_angle(classifier, image)
-        print("Steering angle %f for image %s." % (angle, path))
-
-
-if __name__ == "__main__":
-    tf.app.run()
+for path in argv[2:]:
+    image_raw = imread(path).astype(np.float32)
+    image_3d = np.transpose(image_raw, (1, 0, 2))
+    image = np.expand_dims(image_3d, 0)
+    steering_angle = model.predict(image)
+    print(steering_angle)

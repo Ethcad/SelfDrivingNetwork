@@ -1,92 +1,16 @@
-import tensorflow as tf
 import numpy as np
 import csv
 
-from tensorflow.contrib import learn
-from tensorflow.contrib.learn.python.learn.estimators import model_fn as model_fn_lib
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.layers import Flatten
+from keras.constraints import maxnorm
+from keras.optimizers import SGD
+from keras.layers.convolutional import Conv2D
+from keras.layers.convolutional import MaxPooling2D
 from skimage.io import imread
-
-tf.logging.set_verbosity(tf.logging.INFO)
-
-
-def infer_steering_angle(classifier, image):
-    output = classifier.predict(
-        x=image,
-        batch_size=1
-    )
-    for angle in output:
-        return angle
-
-
-def infer(classifier):
-    path = "/home/brendon/DeepLearning/SelfDrivingNetwork/data/1542.png"
-    image_reversed = imread(path).astype(np.float32)
-    image_unlayered = np.transpose(image_reversed, (1, 0, 2))
-    image = np.reshape(image_unlayered, [1, -1, 480, 3])
-    angle = infer_steering_angle(classifier, image)
-    print("Steering angle %f for image %s." % (angle, path))
-
-
-def cnn_model_fn(features, labels, mode):
-    conv1 = tf.layers.conv2d(
-        inputs=features,
-        filters=32,
-        kernel_size=5,
-        padding="same",
-        activation=tf.nn.relu
-    )
-
-    pool1 = tf.layers.max_pooling2d(
-        inputs=conv1,
-        pool_size=2,
-        strides=2
-    )
-
-    pool1_flat = tf.reshape(pool1, [-1, 2764800])
-
-    dense1 = tf.layers.dense(
-        inputs=pool1_flat,
-        units=128,
-        activation=tf.nn.relu
-    )
-
-    # dropout = tf.layers.dropout(
-    #     inputs=dense1,
-    #     rate=0.4,
-    #     training=mode == learn.ModeKeys.TRAIN
-    # )
-
-    dense2 = tf.layers.dense(
-        inputs=dense1,
-        units=1,
-        activation=tf.nn.relu
-    )
-
-    predictions = tf.reshape(dense2, [-1])
-
-    loss = None
-    train_op = None
-
-    if mode != learn.ModeKeys.INFER:
-        loss = tf.losses.mean_squared_error(
-            labels=labels,
-            predictions=predictions
-        )
-
-    if mode == learn.ModeKeys.TRAIN:
-        train_op = tf.contrib.layers.optimize_loss(
-            loss=loss,
-            global_step=tf.contrib.framework.get_global_step(),
-            learning_rate=0.0001,
-            optimizer="SGD"
-        )
-
-    return model_fn_lib.ModelFnOps(
-        mode=mode,
-        predictions=predictions,
-        loss=loss,
-        train_op=train_op
-    )
+from time import time
 
 
 def get_data(csv_path):
@@ -98,7 +22,7 @@ def get_data(csv_path):
     with open(csv_path) as csv_file:
         filename_reader = csv.reader(csv_file)
         for row in filename_reader:
-            steering_angles.append((float(row[1]) * 10) + 1)
+            steering_angles.append(float(row[1]) * 100)
             image_list.append(imread(row[0]))
     labels = np.array(steering_angles, dtype=np.float32)
 
@@ -112,26 +36,55 @@ def get_data(csv_path):
     return training_images, labels
 
 
-def main(_):
-    # Gather data
-    images, labels = get_data("./data/labels.csv")
+def create_model():
+    # Create the model
+    model = Sequential()
+    model.add(
+        Conv2D(16, (2, 2), input_shape=(720, 480, 3), padding='same', activation='tanh', kernel_constraint=maxnorm(3)))
+    model.add(MaxPooling2D(pool_size=(16, 16)))
+    model.add(Flatten())
+    model.add(Dense(64, activation='tanh', kernel_constraint=maxnorm(3)))
+    model.add(Dense(1, activation='tanh'))
 
-    # Create the estimator
-    classifier = learn.Estimator(
-        model_fn=cnn_model_fn,
-        model_dir="/tmp/network2"
+    # Compile model
+    epochs = 15
+    learning_rate = 0.0001
+    decay = learning_rate / epochs
+    sgd = SGD(
+        lr=learning_rate,
+        momentum=0.9,
+        decay=decay,
+        nesterov=False
+    )
+    model.compile(
+        loss='mean_squared_error',
+        optimizer=sgd,
+        metrics=['accuracy']
     )
 
-    # Train the model
-    classifier.fit(
-        x=images,
-        y=labels,
-        batch_size=10,
-        steps=10
-    )
-
-    infer(classifier)
+    print(model.summary())
+    return model, epochs
 
 
-if __name__ == "__main__":
-    tf.app.run()
+# Gather data
+axis_order = (0, 2, 1, 3)
+images, labels = get_data("./data/labels.csv")
+images_t = np.transpose(images, axis_order)
+images_val, labels_val = get_data("./data/labels_val.csv")
+images_val_t = np.transpose(images_val, axis_order)
+
+model, epochs = create_model()
+
+model.fit(
+    images_t,
+    labels,
+    validation_data=(images_val_t, labels_val),
+    epochs=epochs,
+    batch_size=32
+)
+
+print(model.predict(images_val_t))
+
+print(labels_val)
+
+model.save("./model-%d.h5" % int(time()))
