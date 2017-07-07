@@ -3,12 +3,7 @@ import csv
 
 from keras.models import Sequential
 from keras.layers import Dense
-from keras.layers import Dropout
 from keras.layers import Flatten
-from keras.layers import Activation
-from keras.constraints import maxnorm
-from keras.optimizers import SGD
-from keras.optimizers import RMSprop
 from keras.optimizers import Adadelta
 from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
@@ -75,11 +70,10 @@ def create_model():
     model.add(Dense(1))
 
     # Compile model
-    sgd = Adadelta()
+    optimizer = Adadelta()
     model.compile(
         loss='mean_squared_error',
-        optimizer=sgd,
-        metrics=[lambda y_true, y_pred: y_pred]
+        optimizer=optimizer
     )
 
     print(model.summary())
