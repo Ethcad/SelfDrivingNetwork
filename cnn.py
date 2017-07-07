@@ -5,15 +5,19 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
 from keras.layers import Flatten
+from keras.layers import Activation
 from keras.constraints import maxnorm
 from keras.optimizers import SGD
+from keras.optimizers import RMSprop
+from keras.optimizers import Adadelta
 from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
 from skimage.io import imread
+from matplotlib.pyplot import imshow
 from time import time
 
 
-EPOCHS = 2
+EPOCHS = 30
 BATCH_SIZE = 32
 
 
@@ -26,7 +30,7 @@ def get_data(csv_path):
     with open(csv_path) as csv_file:
         filename_reader = csv.reader(csv_file)
         for row in filename_reader:
-            steering_angles.append(float(row[1]) + 10)
+            steering_angles.append(float(row[1]))
             image_list.append(imread(row[0]))
     labels = np.array(steering_angles, dtype=np.float32)
 
@@ -36,39 +40,42 @@ def get_data(csv_path):
     training_images = np.empty((image_count,) + image_size, dtype=np.float32)
     for i in range(image_count):
         training_images[i, :, :, :] = image_list[i]
+    imshow(image_list[1])
 
     return training_images, labels
 
 
 def create_model():
     # Rectified linear activation function
-    activation = 'relu'
+    activation = 'tanh'
 
     # Create the model
     model = Sequential()
-    model.add(
-        Conv2D(32, (2, 2),
-               input_shape=(360, 240, 3),
-               padding='same',
-               activation=activation,
-               #kernel_constraint=maxnorm(3)
-               )
-    )
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    #model.add(Conv2D(64, (2, 2), padding='same'))
+    model.add(Conv2D(
+        input_shape=(360, 240, 3),
+        filters=8,
+        strides=(3, 3),
+        kernel_size=(2, 2),
+        padding='same',
+        activation=activation,
+    ))
+    for i in range(1):
+        model.add(Conv2D(
+            filters=8,
+            strides=(3, 3),
+            kernel_size=(2, 2),
+            padding='same',
+            activation=activation,
+        ))
+    model.add(MaxPooling2D(
+        pool_size=[2, 2]
+    ))
     model.add(Flatten())
-    # model.add(Dense(128, activation=activation, kernel_constraint=maxnorm(3)))
-    model.add(Dense(1, activation=activation))
+    model.add(Dense(128, activation=activation))
+    model.add(Dense(1))
 
     # Compile model
-    learning_rate = 0.001
-    decay = learning_rate / EPOCHS
-    sgd = SGD(
-        lr=learning_rate,
-        momentum=0.9,
-        decay=decay,
-        nesterov=False
-    )
+    sgd = Adadelta()
     model.compile(
         loss='mean_squared_error',
         optimizer=sgd,
@@ -96,4 +103,4 @@ model.fit(
     batch_size=BATCH_SIZE
 )
 
-model.save("./model-%d.h5" % int(time()))
+model.save("./model/%d.h5" % int(time()))
