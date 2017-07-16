@@ -4,6 +4,7 @@ import csv
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Flatten
+from keras.layers import Dropout
 from keras.optimizers import Adadelta
 from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
@@ -12,7 +13,7 @@ from matplotlib.pyplot import imshow
 from time import time
 
 
-EPOCHS = 30
+EPOCHS = 10
 BATCH_SIZE = 32
 
 
@@ -65,6 +66,7 @@ def create_model():
     model.add(MaxPooling2D(
         pool_size=[2, 2]
     ))
+    model.add(Dropout(0.4))
     model.add(Flatten())
     model.add(Dense(128, activation=activation))
     model.add(Dense(1))
