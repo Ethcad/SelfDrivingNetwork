@@ -13,8 +13,8 @@ from matplotlib.pyplot import imshow
 from time import time
 
 
-EPOCHS = 10
-BATCH_SIZE = 32
+EPOCHS = 5
+BATCH_SIZE = 4
 
 
 def get_data(csv_path):
@@ -36,6 +36,8 @@ def get_data(csv_path):
     training_images = np.empty((image_count,) + image_size, dtype=np.float32)
     for i in range(image_count):
         training_images[i, :, :, :] = image_list[i]
+        if i % 200 == 0:
+            print("Loaded image %i of %i from file '%s'" % (i, image_count, csv_path))
     imshow(image_list[1])
 
     return training_images, labels
@@ -48,10 +50,10 @@ def create_model():
     # Create the model
     model = Sequential()
     model.add(Conv2D(
-        input_shape=(360, 240, 3),
+        input_shape=(200, 66, 3 ),
         filters=8,
         strides=(3, 3),
-        kernel_size=(2, 2),
+        kernel_size=(3, 3),
         padding='same',
         activation=activation,
     ))
@@ -59,12 +61,13 @@ def create_model():
         model.add(Conv2D(
             filters=8,
             strides=(3, 3),
-            kernel_size=(2, 2),
+            kernel_size=(3, 3),
             padding='same',
             activation=activation,
         ))
     model.add(MaxPooling2D(
-        pool_size=[2, 2]
+        pool_size=(4, 4),
+        strides=(2, 2)
     ))
     model.add(Dropout(0.4))
     model.add(Flatten())
