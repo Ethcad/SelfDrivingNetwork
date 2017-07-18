@@ -8,7 +8,8 @@ from skimage.io import imread
 from sys import argv
 
 model = load_model("./%s" % argv[1])
-os.system("rm /tmp/*sim* && echo 0.0 > /tmp/-1sim.txt")
+os.system("rm /tmp/*sim*")
+os.system("echo 0.0 > /tmp/-1sim.txt")
 
 i = 0
 while True:

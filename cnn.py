@@ -7,14 +7,13 @@ from keras.layers import Flatten
 from keras.layers import Dropout
 from keras.optimizers import Adadelta
 from keras.layers.convolutional import Conv2D
-from keras.layers.convolutional import MaxPooling2D
 from skimage.io import imread
 from matplotlib.pyplot import imshow
 from time import time
 
 
-EPOCHS = 5
-BATCH_SIZE = 4
+EPOCHS = 100
+BATCH_SIZE = 10
 
 
 def get_data(csv_path):
@@ -50,29 +49,39 @@ def create_model():
     # Create the model
     model = Sequential()
     model.add(Conv2D(
-        input_shape=(200, 66, 3 ),
-        filters=8,
-        strides=(3, 3),
-        kernel_size=(3, 3),
-        padding='same',
+        input_shape=(200, 66, 3),
+        filters=24,
+        kernel_size=5,
+        strides=2,
         activation=activation,
     ))
-    for i in range(1):
-        model.add(Conv2D(
-            filters=8,
-            strides=(3, 3),
-            kernel_size=(3, 3),
-            padding='same',
-            activation=activation,
-        ))
-    model.add(MaxPooling2D(
-        pool_size=(4, 4),
-        strides=(2, 2)
+    model.add(Conv2D(
+        filters=36,
+        kernel_size=5,
+        strides=2,
+        activation=activation,
     ))
-    model.add(Dropout(0.4))
+    model.add(Conv2D(
+        filters=48,
+        kernel_size=5,
+        strides=2,
+        activation=activation,
+    ))
+    model.add(Conv2D(
+        filters=64,
+        kernel_size=3,
+        activation=activation,
+    ))
+    model.add(Conv2D(
+        filters=64,
+        kernel_size=3,
+        activation=activation,
+    ))
     model.add(Flatten())
-    model.add(Dense(128, activation=activation))
-    model.add(Dense(1))
+    model.add(Dense(100, activation=activation))
+    model.add(Dense(50, activation=activation))
+    model.add(Dense(10, activation=activation))
+    model.add(Dense(1, activation=activation))
 
     # Compile model
     optimizer = Adadelta()
