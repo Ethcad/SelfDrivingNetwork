@@ -12,7 +12,7 @@ from matplotlib.pyplot import imshow
 from time import time
 
 
-EPOCHS = 100
+EPOCHS = 40
 BATCH_SIZE = 10
 
 
