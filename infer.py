@@ -15,8 +15,8 @@ set_session(tf.Session(config=config))
 
 model = load_model("./%s" % argv[1])
 model = load_model("./%s" % argv[1])
-fs_path = "/home/nvidia/tmp/"
-os.system("rm %s*" % fs_path)
+fs_path = "/tmp/"
+os.system("rm %s*sim*" % fs_path)
 os.system("echo 0.0 > %s-1sim.txt" % fs_path)
 
 i = 0
