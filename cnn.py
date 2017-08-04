@@ -1,107 +1,70 @@
 import numpy as np
-import csv
 
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Flatten
-from keras.layers import Dropout
-from keras.optimizers import Adadelta
-from keras.layers.convolutional import Conv2D
 from skimage.io import imread
-from matplotlib.pyplot import imshow
 from time import time
+from os import listdir
+
+# Custom models
+from mit_model import mit_model
+from nvidia_model import nvidia_model
 
 
-EPOCHS = 40
+EPOCHS = 5
 BATCH_SIZE = 10
+VAL_PROPORTION = 0.1
 
 
-def get_data(csv_path):
+def consolidate_jagged_numpy_array(list_of_numpy_arrays):
+    # Process and stack images
+    image_count = len(list_of_numpy_arrays)
+    image_size = list_of_numpy_arrays[0].shape
+    consolidated_array = np.empty((image_count,) + image_size, dtype=np.float32)
+    for i in range(image_count):
+        consolidated_array[i, :, :, :] = list_of_numpy_arrays[i]
+
+    return consolidated_array
+
+
+def get_data(path):
     # Initialize arrays of data
     steering_angles = []
     image_list = []
 
-    # Get image file paths and steering angles from CSV
-    with open(csv_path) as csv_file:
-        filename_reader = csv.reader(csv_file)
-        for row in filename_reader:
-            steering_angles.append(float(row[1]))
-            image_list.append(imread(row[0]))
-    labels = np.array(steering_angles, dtype=np.float32)
+    # Get image file paths and steering angles from folder
+    i = 0
+    file_list = listdir(path)
+    num_files = len(file_list)
+    for file_name in file_list:
+        image_list.append(imread(path + file_name))
+        file_name_end = file_name.split("_")[1]
+        steering_angles.append(float(file_name_end[:-4]))
+        i += 1
+        if i % 1000 == 0:
+            print("Loaded %d of %d images from directory '%s'." % (i, num_files, path))
 
-    # Process and stack images
-    image_count = len(image_list)
-    image_size = image_list[0].shape
-    training_images = np.empty((image_count,) + image_size, dtype=np.float32)
-    for i in range(image_count):
-        training_images[i, :, :, :] = image_list[i]
-        if i % 200 == 0:
-            print("Loaded image %i of %i from file '%s'" % (i, image_count, csv_path))
-    imshow(image_list[1])
+    angle_labels = np.array(steering_angles, dtype=np.float32)
 
-    return training_images, labels
+    # Consolidate lists of numpy arrays, split into val and train
+    val_num = int(len(angle_labels) * VAL_PROPORTION)
 
+    image_list_train = image_list[:-val_num]
+    training_images = consolidate_jagged_numpy_array(image_list_train)
+    image_list_val = image_list[-val_num:]
+    validation_images = consolidate_jagged_numpy_array(image_list_val)
 
-def create_model():
-    # Rectified linear activation function
-    activation = 'tanh'
+    angle_labels_train = angle_labels[:-val_num]
+    angle_labels_val = angle_labels[-val_num:]
 
-    # Create the model
-    model = Sequential()
-    model.add(Conv2D(
-        input_shape=(200, 66, 3),
-        filters=24,
-        kernel_size=5,
-        strides=2,
-        activation=activation,
-    ))
-    model.add(Conv2D(
-        filters=36,
-        kernel_size=5,
-        strides=2,
-        activation=activation,
-    ))
-    model.add(Conv2D(
-        filters=48,
-        kernel_size=5,
-        strides=2,
-        activation=activation,
-    ))
-    model.add(Conv2D(
-        filters=64,
-        kernel_size=3,
-        activation=activation,
-    ))
-    model.add(Conv2D(
-        filters=64,
-        kernel_size=3,
-        activation=activation,
-    ))
-    model.add(Flatten())
-    model.add(Dense(100, activation=activation))
-    model.add(Dense(50, activation=activation))
-    model.add(Dense(10, activation=activation))
-    model.add(Dense(1, activation=activation))
-
-    # Compile model
-    optimizer = Adadelta()
-    model.compile(
-        loss='mean_squared_error',
-        optimizer=optimizer
-    )
-
-    print(model.summary())
-    return model
+    return training_images, angle_labels_train, validation_images, angle_labels_val
 
 
 # Gather data
 axis_order = (0, 2, 1, 3)
-images, labels = get_data("./data/labels.csv")
+images, labels, images_val, labels_val = get_data("./data/")
 images_t = np.transpose(images, axis_order)
-images_val, labels_val = get_data("./data/labels_val.csv")
 images_val_t = np.transpose(images_val, axis_order)
 
-model = create_model()
+model = nvidia_model()
 
 model.fit(
     images_t,
