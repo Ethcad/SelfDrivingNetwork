@@ -5,3 +5,6 @@ __pycache__
 # Heavy models and data folders
 model
 data
+
+# Python binaries
+*.pyc
