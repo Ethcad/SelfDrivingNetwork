@@ -9,7 +9,7 @@ from mit_model import mit_model
 from nvidia_model import nvidia_model
 
 
-EPOCHS = 5
+EPOCHS = 50
 BATCH_SIZE = 10
 VAL_PROPORTION = 0.1
 
