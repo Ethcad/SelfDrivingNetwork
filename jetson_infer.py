@@ -25,10 +25,10 @@ while True:
     path = "%ssim%d.jpg" % (fs_path, i)
     if os.path.isfile(path):
         image_raw = imread(path).astype(np.float32)
-        image_3d = np.transpose(image_raw, (1, 0, 2))[240:1680, :, :]
-        image_small = imresize(image_3d, (200, 150, 3), interp='lanczos')[:, 66:132, :]
+        image_3d = np.transpose(image_raw, (1, 0, 2))[60:260, 96:162, :]
         image = np.expand_dims(image_3d, 0)
         steering_angle = model.predict(image)
+        print(steering_angle)
         os.system("echo %f > %stemp.txt" % (steering_angle, fs_path))
         os.system("mv %stemp.txt %s%dsim.txt" % (fs_path, fs_path, i))
         i += 1
