@@ -14,6 +14,7 @@ while True:
 	for line in iter(s.before.splitlines()):
 		if 'out' in line:
 			encoder_value = int(line[3:])
+			print encoder_value
 			max_file = last_max_file
 			for file_name in popen('ls -1 /tmp/sim*.jpg').read().split('\n')[:-1]:
 				file_number = int(file_name[8:-4])
