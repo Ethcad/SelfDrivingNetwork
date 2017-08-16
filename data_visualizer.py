@@ -69,8 +69,8 @@ class DataVisualizer(QWidget):
         self.video_display.setFixedSize(1600, 528)
         self.video_display.move(10, 10)
 
-        self.red_wheel_image = QImage("red_wheel.png")
-        self.green_wheel_image = QImage("green_wheel.png")
+        self.red_wheel_image = QImage("assets/red_wheel.png")
+        self.green_wheel_image = QImage("assets/green_wheel.png")
 
         self.red_wheel, self.red_wheel_label = init_wheel_and_label(10)
         self.green_wheel, self.green_wheel_label = init_wheel_and_label(410)
