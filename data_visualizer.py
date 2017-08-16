@@ -4,25 +4,11 @@ from sys import argv, exit
 from os import listdir
 from cv2 import imread
 from scipy.misc import imresize
-from threading import Thread, Event
 from keras.models import load_model
 from numpy import float32, transpose, expand_dims
 from PyQt5.QtWidgets import QLabel, QWidget, QApplication
 from PyQt5.QtGui import QPixmap, QPalette, QImage, QTransform, QFont
-from PyQt5.QtCore import Qt
-
-
-class TimerThread(Thread):
-
-    data_visualizer = None
-
-    def __init__(self, event):
-        Thread.__init__(self)
-        self.stopped = event
-
-    def run(self):
-        while not self.stopped.wait(0.03):
-            self.data_visualizer.update_ui()
+from PyQt5.QtCore import Qt, QTimer
 
 
 class DataVisualizer(QWidget):
@@ -48,12 +34,7 @@ class DataVisualizer(QWidget):
 
         self.process_images()
         self.init_ui()
-
-        stop_flag = Event()
-        timer_thread = TimerThread(stop_flag)
-        timer_thread.daemon = True
-        timer_thread.start()
-        timer_thread.data_visualizer = self
+        self.update_ui()
 
     def init_ui(self):
 
@@ -143,13 +124,14 @@ class DataVisualizer(QWidget):
         image_index = self.current_frame % self.num_frames
         self.current_frame += 1
         frame = imresize(self.loaded_images[image_index], 8.0, interp='nearest')
-        # frame = imresize(imread("example.png"), 8.0, interp='nearest')
         image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_RGB888).rgbSwapped()
         pix = QPixmap.fromImage(image)
         self.video_display.setPixmap(pix)
 
         set_wheel_angle(self.actual_angles[image_index], self.red_wheel_image, self.red_wheel, self.red_wheel_label, "human")
         set_wheel_angle(self.predicted_angles[image_index], self.green_wheel_image, self.green_wheel, self.green_wheel_label, "network")
+
+        QTimer().singleShot(30, self.update_ui)
 
 
 if __name__ == '__main__':
