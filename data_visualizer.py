@@ -7,133 +7,256 @@ from scipy.misc import imresize
 from keras.models import load_model
 from numpy import float32, transpose, expand_dims
 from PyQt5.QtWidgets import QLabel, QWidget, QApplication
-from PyQt5.QtGui import QPixmap, QPalette, QImage, QTransform, QFont
+from PyQt5.QtGui import QPixmap, QPalette, QImage, QTransform, QFont, QPainter, QColor, QPen
 from PyQt5.QtCore import Qt, QTimer
 
 
+# Program which allows a user to visually compare and contrast a neural network and a human's steering abilities
+# Created by brendon-ai, August 2017
+
 class DataVisualizer(QWidget):
 
-    ANGLE_COEFFICIENT = 360
+    # Degrees to rotate steering wheel, multiplied by the corresponding steering angle
+    STEERING_WHEEL_COEFFICIENT = 360
 
+    # UI elements and counters
     video_display = None
     current_frame = 0
     num_frames = None
+
+    # Images and corresponding steering angles
     loaded_images = []
     actual_angles = []
     predicted_angles = []
+
+    # Everything required for each of the two steering wheels and graph lines
     red_wheel = None
     red_wheel_label = None
     red_wheel_image = None
+    red_line_points = []
     green_wheel = None
     green_wheel_label = None
     green_wheel_image = None
+    green_line_points = []
 
+    # Initializer
     def __init__(self):
 
         super(DataVisualizer, self).__init__()
 
+        # Load images, set up the UI, and start updating
         self.process_images()
         self.init_ui()
         self.update_ui()
 
+    # Initialize the user interface
     def init_ui(self):
 
-        font = QFont('Source Sans Pro', 24)
-        font.setWeight(30)
+        # Font used for the big labels under the steering wheels
+        large_font = QFont('Source Sans Pro', 24)
+        large_font.setWeight(30)
 
+        # Font used for the steering angle indicators next to the graph
+        small_font = QFont('Source Sans Pro', 16)
+        small_font.setWeight(20)
+
+        # Initialize a steering wheel and corresponding label at a given Y position
         def init_wheel_and_label(y):
+            # Create a wheel and set its position
             wheel = QLabel(self)
             wheel.setAlignment(Qt.AlignCenter)
             wheel.setFixedSize(290, 288)
             wheel.move(1620, y)
 
+            # Create a label, configure its text positioning and font, and set its position
             label = QLabel(self)
             label.setAlignment(Qt.AlignCenter)
             label.setFixedSize(290, 72)
             label.move(1620, y + 298)
-            label.setFont(font)
+            label.setFont(large_font)
 
             return wheel, label
 
+        # Create a small graph indicator label with text and position generated from a steering angle
+        def init_graph_label(steering_angle):
+            y_point = self.get_line_graph_y_position(steering_angle) - 15
+            label = QLabel(self)
+            label.setAlignment(Qt.AlignCenter)
+            label.setFixedSize(30, 30)
+            label.move(1580, y_point)
+            label.setFont(small_font)
+            label.setText(str(steering_angle))
+
+        # Black text on a light gray background
         palette = QPalette()
         palette.setColor(QPalette.Foreground, Qt.black)
         palette.setColor(QPalette.Background, Qt.lightGray)
 
+        # Set the size, position, title, and color scheme of the window
         self.setFixedSize(1920, 800)
         self.move(0, 100)
         self.setWindowTitle('Training Data Visualizer')
         self.setPalette(palette)
 
+        # Initialize the image box that holds the video frames
         self.video_display = QLabel(self)
         self.video_display.setAlignment(Qt.AlignCenter)
         self.video_display.setFixedSize(1600, 528)
         self.video_display.move(10, 10)
 
+        # Load the steering wheel images from the assets folder
         self.red_wheel_image = QImage("assets/red_wheel.png")
         self.green_wheel_image = QImage("assets/green_wheel.png")
 
+        # Initialize the red and green wheels and corresponding labels
         self.red_wheel, self.red_wheel_label = init_wheel_and_label(10)
         self.green_wheel, self.green_wheel_label = init_wheel_and_label(410)
 
+        # Create graph indicator labels for positions -0.1, 0.0, and 0.1
+        init_graph_label(-0.1)
+        init_graph_label(0.0)
+        init_graph_label(0.1)
+
+        # Make the window exist
         self.show()
 
+    # Load all images from disk and calculate their human and network steering angles
     def process_images(self):
 
+        # If the arguments are invalid, fail to an error message
         try:
+            # Load the Keras model from disk
             model = load_model(argv[1])
+
+            # Load all image names from the folder, and record how many there are
             image_folder = argv[2]
             file_names = listdir(image_folder)
             image_names = [name for name in file_names if '.jpg' in name or '.png' in name]
             image_names.sort()
             self.num_frames = len(image_names)
 
-            print "Loading and processing images..."
+            # Notify the user the process has begun; this may take a while
+            print("Loading and processing images...")
             index = 0
             for image_name in image_names:
+                # Take the human steering angle from the file name
                 actual_angle = float(image_name.split("_")[1][:-4])
                 self.actual_angles.append(actual_angle)
 
+                # Load the image itself into a Numpy array
                 image_path = ("%s/%s" % (image_folder, image_name))
                 loaded_image = imread(image_path)
                 self.loaded_images.append(loaded_image)
 
+                # Preprocessing required for the network to classify it
                 image_float = loaded_image.astype(float32)
                 image_3d = transpose(image_float, (1, 0, 2))
                 image_final = expand_dims(image_3d, 0)
 
+                # Use the loaded model to predict a steering angle for the image
                 predicted_angle = model.predict(image_final)
                 self.predicted_angles.append(predicted_angle)
 
+                # Update the user every 1000 images
                 index += 1
                 if index % 1000 == 0:
-                    print "Processed image %d of %d" % (index, self.num_frames)
+                    print("Processed image %d of %d" % (index, self.num_frames))
 
+        # Display an error message and quit
         except IndexError:
-            print "Usage: ./data_visualizer.py <model> <image folder>"
+            print("Usage: ./data_visualizer.py <model> <image folder>")
             exit()
 
+    # Updates the image box, steering wheels, and labels
     def update_ui(self):
 
+        # Given a steering angle, rotate the steering wheel image and set the label correspondingly
         def set_wheel_angle(steering_angle, wheel_image, wheel, label, title):
-            wheel_angle = steering_angle * self.ANGLE_COEFFICIENT
+            wheel_angle = steering_angle * self.STEERING_WHEEL_COEFFICIENT
             transform = QTransform().rotate(wheel_angle)
             pixmap = QPixmap.fromImage(wheel_image).transformed(transform)
             wheel.setPixmap(pixmap)
             label.setText("Steering angle\n(%s): %f" % (title, steering_angle))
 
+        # Add a new point to the graph and shift all points left 5 pixels
+        def update_point_list(point_list, steering_angle):
+            y_point = self.get_line_graph_y_position(steering_angle)
+            point_list.append([1570, y_point])
+            for point in point_list:
+                point[0] -= 5
+
+        # Update the index that tells us what frame and steering angle to display
         image_index = self.current_frame % self.num_frames
         self.current_frame += 1
+
+        # Upscale a loaded image and display it
         frame = imresize(self.loaded_images[image_index], 8.0, interp='nearest')
         image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_RGB888).rgbSwapped()
         pix = QPixmap.fromImage(image)
         self.video_display.setPixmap(pix)
 
-        set_wheel_angle(self.actual_angles[image_index], self.red_wheel_image, self.red_wheel, self.red_wheel_label, "human")
-        set_wheel_angle(self.predicted_angles[image_index], self.green_wheel_image, self.green_wheel, self.green_wheel_label, "network")
+        # Get the corresponding network and human steering angles for the current image
+        red_angle = self.actual_angles[image_index]
+        green_angle = self.predicted_angles[image_index]
 
+        # Update the UI for the current steering angles
+        set_wheel_angle(red_angle, self.red_wheel_image, self.red_wheel, self.red_wheel_label, "human")
+        set_wheel_angle(green_angle, self.green_wheel_image, self.green_wheel, self.green_wheel_label, "network")
+
+        # Add the current steering angles to the graph
+        update_point_list(self.red_line_points, red_angle)
+        update_point_list(self.green_line_points, green_angle)
+
+        # Make sure the graph is redrawn every frame
+        self.repaint()
+
+        # Call this function again in 30 milliseconds
         QTimer().singleShot(30, self.update_ui)
 
+    # Called when it is time to redraw
+    def paintEvent(self, event):
 
+        # Initialize the drawing tool
+        painter = QPainter(self)
+
+        # Draw a jagged line over a list of points
+        def paint_line(point_list, color):
+            # Configure the line color and width
+            pen = QPen()
+            pen.setColor(color)
+            pen.setWidth(3)
+            painter.setPen(pen)
+
+            # Iterate over the points and draw a line between each consecutive pair
+            previous_point = point_list[0]
+            for i in range(1, len(point_list)):
+                current_point = point_list[i]
+                line_parameters = current_point + previous_point
+                painter.drawLine(*line_parameters)
+                previous_point = current_point
+
+        # Calculate the Y points on the graph for steering angles of -0.1, 0.0, and 0.1 respectively
+        y_0_1 = self.get_line_graph_y_position(-0.1)
+        y0 = self.get_line_graph_y_position(0.0)
+        y0_1 = self.get_line_graph_y_position(0.1)
+
+        # Draw the three grid lines
+        paint_line([[0, y_0_1], [1570, y_0_1]], QColor(0, 0, 0))
+        paint_line([[0, y0], [1570, y0]], QColor(0, 0, 0))
+        paint_line([[0, y0_1], [1570, y0_1]], QColor(0, 0, 0))
+
+        # Draw the steering angle lines on the graph
+        paint_line(self.red_line_points, QColor(255, 0, 0))
+        paint_line(self.green_line_points, QColor(0, 255, 0))
+
+    # Take an arbitrary steering angle, return the Y position that angle would correspond to on the graph
+    @staticmethod
+    def get_line_graph_y_position(steering_angle):
+        y_point = int(steering_angle * 800) + 669
+        return y_point
+
+
+# If this file is being run directly, instantiate the DataVisualizer class
 if __name__ == '__main__':
     app = QApplication([])
     ic = DataVisualizer()
