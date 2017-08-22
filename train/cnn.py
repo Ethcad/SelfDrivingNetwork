@@ -61,7 +61,7 @@ def get_data(path):
 
 # Gather data
 axis_order = (0, 2, 1, 3)
-images, labels, images_val, labels_val = get_data("./data/")
+images, labels, images_val, labels_val = get_data("../data/")
 images_t = np.transpose(images, axis_order)
 images_val_t = np.transpose(images_val, axis_order)
 
@@ -92,4 +92,4 @@ for i in range(len(models)):
         batch_size=BATCH_SIZE
     )
 
-    models[i].save("./model/%d.h5" % int(time()))
+    models[i].save("../model/%d.h5" % int(time()))
