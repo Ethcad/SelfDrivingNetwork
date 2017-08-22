@@ -6,10 +6,10 @@ from keras.layers.convolutional import Conv2D
 
 
 def nvidia_model():
-    # Hyperbolic tangent activation function
-    activation = 'tanh'
+    # Rectified linear activation function
+    activation = 'relu'
 
-    # Create the model
+    # Create the model used by NVIDIA in 'End-to-End Learning for Self-Driving Cars'
     model = Sequential()
     model.add(Conv2D(
         input_shape=(200, 66, 3),
@@ -53,5 +53,4 @@ def nvidia_model():
         optimizer=optimizer
     )
 
-    print(model.summary())
     return model

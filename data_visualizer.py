@@ -2,6 +2,7 @@
 
 from sys import argv, exit
 from os import listdir
+from math import sqrt
 from cv2 import imread
 from scipy.misc import imresize
 from keras.models import load_model
@@ -18,6 +19,9 @@ class DataVisualizer(QWidget):
 
     # Degrees to rotate steering wheel, multiplied by the corresponding steering angle
     STEERING_WHEEL_COEFFICIENT = 360
+
+    # Parameters for the low-pass filter
+    LOW_PASS_VECTOR = [1.0, 0.7, 0.4, 0.3, 0.2]
 
     # UI elements and counters
     video_display = None
@@ -39,18 +43,18 @@ class DataVisualizer(QWidget):
     green_wheel_image = None
     green_line_points = []
 
-    # Initializer
+    # Call various initialization functions
     def __init__(self):
 
         super(DataVisualizer, self).__init__()
 
         # Load images, set up the UI, and start updating
-        self.process_images()
-        self.init_ui()
+        standard_deviation = self.process_images()
+        self.init_ui(standard_deviation)
         self.update_ui()
 
-    # Initialize the user interface
-    def init_ui(self):
+    # Initialize the user interface, with standard deviation parameter to be displayed on label
+    def init_ui(self, standard_deviation):
 
         # Font used for the big labels under the steering wheels
         large_font = QFont('Source Sans Pro', 24)
@@ -93,10 +97,19 @@ class DataVisualizer(QWidget):
         palette.setColor(QPalette.Background, Qt.lightGray)
 
         # Set the size, position, title, and color scheme of the window
-        self.setFixedSize(1920, 800)
+        self.setFixedSize(1920, 860)
         self.move(0, 100)
         self.setWindowTitle('Training Data Visualizer')
         self.setPalette(palette)
+
+        # Initialize the label at the bottom that display low pass filter parameters and standard deviation
+        std_dev_label = QLabel(self)
+        std_dev_label.setAlignment(Qt.AlignCenter)
+        std_dev_label.setFixedSize(1600, 40)
+        std_dev_label.move(10, 810)
+        std_dev_label.setFont(small_font)
+        std_dev_label.setText('Low pass filter parameters: %s              Standard deviation over whole run: %f'
+                              % (self.LOW_PASS_VECTOR, standard_deviation))
 
         # Initialize the image box that holds the video frames
         self.video_display = QLabel(self)
@@ -110,7 +123,7 @@ class DataVisualizer(QWidget):
 
         # Initialize the red and green wheels and corresponding labels
         self.red_wheel, self.red_wheel_label = init_wheel_and_label(10)
-        self.green_wheel, self.green_wheel_label = init_wheel_and_label(410)
+        self.green_wheel, self.green_wheel_label = init_wheel_and_label(435)
 
         # Create graph indicator labels for positions -0.1, 0.0, and 0.1
         init_graph_label(-0.1)
@@ -121,7 +134,31 @@ class DataVisualizer(QWidget):
         self.show()
 
     # Load all images from disk and calculate their human and network steering angles
+    # Return standard deviation between human and network angles over whole run
     def process_images(self):
+
+        # An implementation of a low pass filter, used to dampen the network's steering angle responses
+        def low_pass_filter(steering_angle, output_memory):
+            # Add current steering angle to memory of outputs (passed from outer function) and remove the oldest element
+            output_memory = output_memory[:-1]
+            output_memory.insert(0, steering_angle)
+
+            # Weighted average of the last 5 outputs, using the low pass filter parameters as weights
+            weighted_sum = sum(i[0] * i[1] for i in zip(output_memory, self.LOW_PASS_VECTOR))
+            total_of_weights = sum(self.LOW_PASS_VECTOR)
+            weighted_average = weighted_sum / total_of_weights
+
+            return weighted_average, output_memory
+
+        # Compute the standard deviation of the difference between two lists
+        def standard_deviation(actual_output, ground_truth):
+            total_squared_error = 0
+            for i in range(len(actual_output)):
+                error = actual_output[i] - ground_truth[i]
+                squared_error = error * error
+                total_squared_error += squared_error
+            variance = total_squared_error / len(actual_output)
+            return sqrt(variance)
 
         # If the arguments are invalid, fail to an error message
         try:
@@ -134,6 +171,9 @@ class DataVisualizer(QWidget):
             image_names = [name for name in file_names if '.jpg' in name or '.png' in name]
             image_names.sort()
             self.num_frames = len(image_names)
+
+            # Initialize a short-term memory of the last 5 raw outputs from the network, used for the low pass filter
+            last_5_outputs = [0] * 5
 
             # Notify the user the process has begun; this may take a while
             print("Loading and processing images...")
@@ -148,19 +188,23 @@ class DataVisualizer(QWidget):
                 loaded_image = imread(image_path)
                 self.loaded_images.append(loaded_image)
 
-                # Preprocessing required for the network to classify it
+                # Pre-processing required for the network to classify it
                 image_float = loaded_image.astype(float32)
                 image_3d = transpose(image_float, (1, 0, 2))
                 image_final = expand_dims(image_3d, 0)
 
-                # Use the loaded model to predict a steering angle for the image
+                # Use the loaded model to predict a steering angle for the image, and apply a low pass filter
                 predicted_angle = model.predict(image_final)
-                self.predicted_angles.append(predicted_angle)
+                (dampened_angle, last_5_outputs) = low_pass_filter(predicted_angle[0, 0], last_5_outputs)
+                self.predicted_angles.append(dampened_angle)
 
                 # Update the user every 1000 images
                 index += 1
                 if index % 1000 == 0:
                     print("Processed image %d of %d" % (index, self.num_frames))
+
+            # Compute and return the standard deviation over the whole run
+            return standard_deviation(self.predicted_angles, self.actual_angles)
 
         # Display an error message and quit
         except IndexError:
@@ -252,7 +296,7 @@ class DataVisualizer(QWidget):
     # Take an arbitrary steering angle, return the Y position that angle would correspond to on the graph
     @staticmethod
     def get_line_graph_y_position(steering_angle):
-        y_point = int(steering_angle * 800) + 669
+        y_point = -int(steering_angle * 800) + 669
         return y_point
 
 

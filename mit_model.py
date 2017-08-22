@@ -8,14 +8,13 @@ from keras.layers.convolutional import ZeroPadding2D
 
 
 def mit_model():
-    # Hyperbolic tangent activation function
+    # Rectified linear activation function
     activation = 'relu'
 
-    # Create the model
+    # Create the model used for the MIT DeepTesla project
     model = Sequential()
     model.add(ZeroPadding2D(input_shape=(200, 66, 3), padding=2))
     model.add(Conv2D(
-        input_shape=(200, 66, 3),
         kernel_size=3,
         filters=8,
         strides=3,
@@ -40,7 +39,7 @@ def mit_model():
         strides=2
     ))
     model.add(Flatten())
-    model.add(Dense(units=1))
+    model.add(Dense(1))
 
     # Compile model
     optimizer = Adadelta()

@@ -7,9 +7,10 @@ from os import listdir
 # Custom models
 from mit_model import mit_model
 from nvidia_model import nvidia_model
+from more_filters_model import more_filters_model
 
 
-EPOCHS = 50
+EPOCHS = 10
 BATCH_SIZE = 10
 VAL_PROPORTION = 0.1
 
@@ -64,14 +65,31 @@ images, labels, images_val, labels_val = get_data("./data/")
 images_t = np.transpose(images, axis_order)
 images_val_t = np.transpose(images_val, axis_order)
 
-model = nvidia_model()
+# Initialize list of models
+models = [
+    nvidia_model(),
+    mit_model(),
+    more_filters_model([
+        (64, 1, True),
+        (128, 3, True)
+    ]),
+    more_filters_model([
+        (64, 2, True),
+        (256, 3, False)
+    ])
+]
 
-model.fit(
-    images_t,
-    labels,
-    validation_data=(images_val_t, labels_val),
-    epochs=EPOCHS,
-    batch_size=BATCH_SIZE
-)
+# Train each network with the same set of images, save the trained model, and print results
+for i in range(len(models)):
+    print("\nSummary of model #%d:")
+    print(models[i].summary())
 
-model.save("./model/%d.h5" % int(time()))
+    models[i].fit(
+        images_t,
+        labels,
+        validation_data=(images_val_t, labels_val),
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE
+    )
+
+    models[i].save("./model/%d.h5" % int(time()))
