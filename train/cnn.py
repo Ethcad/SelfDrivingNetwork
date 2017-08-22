@@ -1,8 +1,13 @@
+#!/usr/bin/env python2
+
 import numpy as np
 
 from skimage.io import imread
 from time import time
-from os import listdir
+from os import listdir, path
+from sys import argv
+from math import tan, radians
+from random import shuffle
 
 # Custom models
 from mit_model import mit_model
@@ -15,35 +20,51 @@ BATCH_SIZE = 10
 VAL_PROPORTION = 0.1
 
 
-def consolidate_jagged_numpy_array(list_of_numpy_arrays):
-    # Process and stack images
-    image_count = len(list_of_numpy_arrays)
-    image_size = list_of_numpy_arrays[0].shape
-    consolidated_array = np.empty((image_count,) + image_size, dtype=np.float32)
-    for i in range(image_count):
-        consolidated_array[i, :, :, :] = list_of_numpy_arrays[i]
+def get_data(file_path, should_convert):
 
-    return consolidated_array
+    def consolidate_jagged_numpy_array(list_of_numpy_arrays):
+        # Take a list of n-dimensional NumPy arrays and convert it to a single n+1-dimensional NumPy array
+        image_count = len(list_of_numpy_arrays)
+        image_size = list_of_numpy_arrays[0].shape
+        consolidated_array = np.empty((image_count,) + image_size, dtype=np.float32)
+        for i in range(image_count):
+            consolidated_array[i, :, :, :] = list_of_numpy_arrays[i]
 
+        return consolidated_array
 
-def get_data(path):
+    def steering_angle_to_inverse_turning_radius(steering_angle_degrees):
+        # The wheel base of the car
+        WHEEL_BASE = 0.914
+
+        # Take a wheel angle in degrees and convert it to the inverse of the car's turning radius
+        steering_angle_radians = radians(steering_angle_degrees)
+        inverse_turning_radius = tan(steering_angle_radians) / WHEEL_BASE
+
+        return inverse_turning_radius
+
     # Initialize arrays of data
-    steering_angles = []
+    inverse_turning_radii = []
     image_list = []
 
     # Get image file paths and steering angles from folder
     i = 0
-    file_list = listdir(path)
+    file_list = listdir(file_path)
+    shuffle(file_list)
     num_files = len(file_list)
     for file_name in file_list:
-        image_list.append(imread(path + file_name))
+        image_list.append(imread(file_path + file_name))
         file_name_end = file_name.split("_")[1]
-        steering_angles.append(float(file_name_end[:-4]))
+
+        label_value = float(file_name_end[:-4])
+        if should_convert:
+            label_value = steering_angle_to_inverse_turning_radius(label_value)
+        inverse_turning_radii.append(label_value)
+
         i += 1
         if i % 1000 == 0:
-            print("Loaded %d of %d images from directory '%s'." % (i, num_files, path))
+            print("Loaded %d of %d images from directory '%s'." % (i, num_files, file_path))
 
-    angle_labels = np.array(steering_angles, dtype=np.float32)
+    angle_labels = np.array(inverse_turning_radii, dtype=np.float32)
 
     # Consolidate lists of numpy arrays, split into val and train
     val_num = int(len(angle_labels) * VAL_PROPORTION)
@@ -59,9 +80,25 @@ def get_data(path):
     return training_images, angle_labels_train, validation_images, angle_labels_val
 
 
+def should_convert_data_set():
+    # Check for command line flag '--steering-angle'
+    should_convert = False
+    for argument in argv:
+        if argument == "--steering-angle":
+            should_convert = True
+
+    if should_convert:
+        print("Converting labels to inverse turning radii.")
+    else:
+        print("Not converting labels.")
+    return should_convert
+
+# Get path of current file
+script_path = path.dirname(path.realpath(__file__))
+
 # Gather data
 axis_order = (0, 2, 1, 3)
-images, labels, images_val, labels_val = get_data("../data/")
+images, labels, images_val, labels_val = get_data("%s/../data/" % script_path, should_convert_data_set())
 images_t = np.transpose(images, axis_order)
 images_val_t = np.transpose(images_val, axis_order)
 
