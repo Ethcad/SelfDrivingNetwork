@@ -13,6 +13,7 @@ from random import shuffle
 from mit_model import mit_model
 from nvidia_model import nvidia_model
 from more_filters_model import more_filters_model
+from infinite_stack_model import infinite_stack_model
 
 
 EPOCHS = 10
@@ -104,6 +105,7 @@ images_val_t = np.transpose(images_val, axis_order)
 
 # Initialize list of models
 models = [
+    infinite_stack_model(4, 2),
     nvidia_model(),
     mit_model(),
     more_filters_model([
