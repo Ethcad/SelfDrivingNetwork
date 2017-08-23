@@ -16,7 +16,7 @@ from more_filters_model import more_filters_model
 from infinite_stack_model import infinite_stack_model
 
 
-EPOCHS = 10
+EPOCHS = 100
 BATCH_SIZE = 10
 VAL_PROPORTION = 0.1
 
@@ -120,7 +120,7 @@ models = [
 
 # Train each network with the same set of images, save the trained model, and print results
 for i in range(len(models)):
-    print("\nSummary of model #%d:")
+    print("\nSummary of model #%d:" % i)
     print(models[i].summary())
 
     models[i].fit(
