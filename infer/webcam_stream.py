@@ -3,7 +3,7 @@
 from os import system, popen, listdir
 from time import time
 from threading import Thread
-from pexpect import pxssh
+from paramiko import SSHClient
 from evdev import InputDevice, categorize, ecodes, KeyEvent
 
 recording_encoder = False
@@ -34,11 +34,12 @@ def handle_gamepad_input():
 system('rm /tmp/sim*.jpg')
 
 # Start the camera capture daemon process from the command line
-system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
+# system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
 
 # Open an SSH session to the robot controller
-session = pxssh.pxssh()
-session.login('192.168.0.230', 'admin', '')
+client = SSHClient()
+client.load_system_host_keys()
+client.connect("192.168.0.230", username="admin", password="")
 
 # Start the joystick input thread
 thread = Thread(target=handle_gamepad_input)
@@ -58,20 +59,20 @@ while True:
     values_str = values_str[:-1]
 
     # Send values over SSH to the robot controller by writing them to a temp file and then renaming it
-    session.sendline('printf "%s" > /home/lvuser/temp.txt' % values_str)
-    session.sendline('mv /home/lvuser/temp.txt /home/lvuser/values.txt')
+    client.exec_command('printf "%s" > /home/lvuser/temp.txt' % values_str)
+    client.exec_command('mv /home/lvuser/temp.txt /home/lvuser/values.txt')
 
     # To be executed if we are supposed to be recording steering angle data currently
     if recording_encoder:
         # Prompt robot controller to send us current encoder position
-        session.sendline('cat /home/lvuser/latest.encval')
-        session.prompt()
+        _, stdout, _ = client.exec_command('cat /home/lvuser/latest.encval')
 
         # Loop over SSH output
         last_max_file = -1
-        for line in iter(session.before.splitlines()):
+        for line in stdout.read().split("\n"):
             # Only one iteration should occur each time because the input should have just one line containing 'out'
             if 'out' in line:
+		print line
                 # Extract the encoder position from the line
                 encoder_value = float(line[3:])
 
