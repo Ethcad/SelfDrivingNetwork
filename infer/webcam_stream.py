@@ -34,7 +34,7 @@ def handle_gamepad_input():
 system('rm /tmp/sim*.jpg')
 
 # Start the camera capture daemon process from the command line
-# system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
+system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
 
 # Open an SSH session to the robot controller
 client = SSHClient()
@@ -79,7 +79,7 @@ while True:
                 # Tracking of the last file with the highest number ensures no duplicate data is recorded
                 max_file = last_max_file
                 for file_name in listdir("/tmp"):
-                    if "sim" in file_name and ".jpg" in file_name:
+                    if "sim" in file_name and ".jpg" in file_name and "_" not in file_name:
                         # Extract the Unix timestamp from the file name
                         file_number = int(file_name[3:-4])
                         # Find the newest image file
