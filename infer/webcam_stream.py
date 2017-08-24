@@ -72,7 +72,6 @@ while True:
         for line in stdout.read().split("\n"):
             # Only one iteration should occur each time because the input should have just one line containing 'out'
             if 'out' in line:
-		print line
                 # Extract the encoder position from the line
                 encoder_value = float(line[3:])
 
