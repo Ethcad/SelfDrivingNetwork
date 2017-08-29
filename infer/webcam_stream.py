@@ -41,7 +41,7 @@ system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto_priority=1')
 system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_absolute=250')
 
 # Start the camera capture daemon process from the command line
-system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="%s/sim%d.jpg" &' % image_folder)
+system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="%s/sim%%d.jpg" &' % image_folder)
 
 # Open an SSH session to the robot controller
 sock = socket(AF_INET, SOCK_STREAM)
@@ -63,7 +63,6 @@ thread.start()
 i = 0
 while True:
     i += 1
-
     # Compose values for transfer to robot controller into a single string
     values_to_jetson = (int(recording_encoder), 0, i)
     values_str = ''
@@ -72,8 +71,8 @@ while True:
     values_str = values_str[:-1]
 
     # Send values over SSH to the robot controller by writing them to a temp file and then renaming it
-    channel.write('printf "%s" > /home/lvuser/temp.txt\n' % values_str)
-    channel.write('mv /home/lvuser/temp.txt /home/lvuser/values.txt\n')
+    channel.write('. /home/lvuser/run_and_return_newline.sh "printf \'%s\' > /home/lvuser/values.txt"\n' % values_str)
+    channel.read(1024)
 
     # To be executed if we are supposed to be recording steering angle data currently
     if recording_encoder:
