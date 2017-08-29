@@ -33,7 +33,8 @@ def handle_gamepad_input():
                 recording_encoder = False
 
 # Save images in folder provided as a command line argument
-image_folder = argv[1]
+image_folder = "/tmp/"
+archive_folder = argv[1]
 
 # Configure the webcam
 system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto=3')
@@ -92,16 +93,23 @@ while True:
                 # Tracking of the last file with the highest number ensures no duplicate data is recorded
                 max_file = last_max_file
                 for file_name in listdir(image_folder):
-                    if "sim" in file_name and ".jpg" in file_name and "_" not in file_name:
+                    if "sim" in file_name and ".jpg" in file_name:
                         # Extract the Unix timestamp from the file name
                         file_number = int(file_name[3:-4])
                         # Find the newest image file
                         if file_number > max_file:
                             max_file = file_number
+                        # Delete everything but the newest image
+                        elif file_number < max_file:
+                            system('rm -f %s/%s' % (image_folder, file_name))
 
                 # If a new value has been obtained, record it in the file name of the latest image
                 if max_file > last_max_file:
-                    system('mv %s/sim%d.jpg %s/%f_sim%d.jpg' % (image_folder, max_file, image_folder, encoder_value, max_file))
+                    system('mv %s/sim%d.jpg %s/%f_sim%d.jpg' % (image_folder, max_file, archive_folder, encoder_value, max_file))
 
                 # Set the previous image counter to the current image's timestamp
                 last_max_file = max_file
+    else:
+        # If we are not recording, constantly clear the image folder
+        system('rm -f %s/sim*.jpg' % image_folder)
+
