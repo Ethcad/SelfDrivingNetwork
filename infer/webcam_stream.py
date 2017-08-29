@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 from os import system, popen, listdir
+from sys import argv
 from time import time
 from libssh2 import Session
 from socket import socket, AF_INET, SOCK_STREAM
@@ -31,8 +32,8 @@ def handle_gamepad_input():
             elif key_event.keycode == "BTN_THUMB2":
                 recording_encoder = False
 
-# Remove all images currently in the temp folder
-system('rm /tmp/sim*.jpg')
+# Save images in folder provided as a command line argument
+image_folder = argv[1]
 
 # Configure the webcam
 system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto=3')
@@ -40,7 +41,7 @@ system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto_priority=1')
 system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_absolute=250')
 
 # Start the camera capture daemon process from the command line
-system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
+system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="%s/sim%d.jpg" &' % image_folder)
 
 # Open an SSH session to the robot controller
 sock = socket(AF_INET, SOCK_STREAM)
@@ -91,7 +92,7 @@ while True:
                 # Loop over all camera capture images currently in the temp directory
                 # Tracking of the last file with the highest number ensures no duplicate data is recorded
                 max_file = last_max_file
-                for file_name in listdir("/tmp"):
+                for file_name in listdir(image_folder):
                     if "sim" in file_name and ".jpg" in file_name and "_" not in file_name:
                         # Extract the Unix timestamp from the file name
                         file_number = int(file_name[3:-4])
@@ -101,7 +102,7 @@ while True:
 
                 # If a new value has been obtained, record it in the file name of the latest image
                 if max_file > last_max_file:
-                    system('mv /tmp/sim%d.jpg /tmp/%f_sim%d.jpg' % (max_file, encoder_value, max_file))
+                    system('mv %s/sim%d.jpg %s/%f_sim%d.jpg' % (image_folder, max_file, image_folder, encoder_value, max_file))
 
                 # Set the previous image counter to the current image's timestamp
                 last_max_file = max_file
