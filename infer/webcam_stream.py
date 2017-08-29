@@ -2,8 +2,9 @@
 
 from os import system, popen, listdir
 from time import time
+from libssh2 import Session
+from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
-from paramiko import SSHClient
 from evdev import InputDevice, categorize, ecodes, KeyEvent
 
 recording_encoder = False
@@ -42,9 +43,15 @@ system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_absolute=250')
 system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
 
 # Open an SSH session to the robot controller
-client = SSHClient()
-client.load_system_host_keys()
-client.connect("192.168.0.230", username="admin", password="")
+sock = socket(AF_INET, SOCK_STREAM)
+sock.connect(('192.168.0.230', 22))
+
+session = Session()
+session.startup(sock)
+session.userauth_password('admin', '')
+
+channel = session.open_session()
+channel.shell()
 
 # Start the joystick input thread
 thread = Thread(target=handle_gamepad_input)
@@ -64,17 +71,18 @@ while True:
     values_str = values_str[:-1]
 
     # Send values over SSH to the robot controller by writing them to a temp file and then renaming it
-    client.exec_command('printf "%s" > /home/lvuser/temp.txt' % values_str)
-    client.exec_command('mv /home/lvuser/temp.txt /home/lvuser/values.txt')
+    channel.write('printf "%s" > /home/lvuser/temp.txt\n' % values_str)
+    channel.write('mv /home/lvuser/temp.txt /home/lvuser/values.txt\n')
 
     # To be executed if we are supposed to be recording steering angle data currently
     if recording_encoder:
         # Prompt robot controller to send us current encoder position
-        _, stdout, _ = client.exec_command('cat /home/lvuser/latest.encval')
+        channel.write('cat /home/lvuser/latest.encval\n')
+        stdout = channel.read(1024)
 
         # Loop over SSH output
         last_max_file = -1
-        for line in stdout.read().split("\n"):
+        for line in stdout.split("\n"):
             # Only one iteration should occur each time because the input should have just one line containing 'out'
             if 'out' in line:
                 # Extract the encoder position from the line
