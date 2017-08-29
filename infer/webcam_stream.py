@@ -33,6 +33,11 @@ def handle_gamepad_input():
 # Remove all images currently in the temp folder
 system('rm /tmp/sim*.jpg')
 
+# Configure the webcam
+system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto=3')
+system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto_priority=1')
+system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_absolute=250')
+
 # Start the camera capture daemon process from the command line
 system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="/tmp/sim%d.jpg" &')
 
