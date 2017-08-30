@@ -94,12 +94,9 @@ def should_convert_data_set():
         print("Not converting labels.")
     return should_convert
 
-# Get path of current file
-script_path = path.dirname(path.realpath(__file__))
-
 # Gather data
 axis_order = (0, 2, 1, 3)
-images, labels, images_val, labels_val = get_data("%s/../data/" % script_path, should_convert_data_set())
+images, labels, images_val, labels_val = get_data(argv[1], should_convert_data_set())
 images_t = np.transpose(images, axis_order)
 images_val_t = np.transpose(images_val, axis_order)
 
