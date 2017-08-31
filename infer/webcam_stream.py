@@ -21,13 +21,15 @@ from threading import Thread
 from evdev import InputDevice, categorize, ecodes, KeyEvent
 
 recording_encoder = False
-auto_drive = True
+auto_drive = False
 last_max_file = -1
+last_steering_angle = 0.0
 
 
 # Parallel thread that accepts joystick input and sets a global flag
 def handle_gamepad_input():
     global recording_encoder
+    global auto_drive
     
     # Get the input from the device file (specific to the joystick I am using)
     joystick = InputDevice('/dev/input/by-id/usb-Logitech_Logitech_Dual_Action_E89BB55E-event-joystick')
@@ -39,16 +41,25 @@ def handle_gamepad_input():
         if event.type == ecodes.EV_KEY:
             # Get the identifier of the button that was pressed
             key_event = categorize(event)
+            keycode = key_event.keycode
 
+            print keycode
             # Set the global flag to true if the A button was pressed, false if B was pressed
-            if key_event.keycode == "BTN_THUMB":
+            if keycode == "BTN_THUMB":
                 recording_encoder = True
-            elif key_event.keycode == "BTN_THUMB2":
+            elif keycode == "BTN_THUMB2":
                 recording_encoder = False
+            elif keycode == "BTN_PINKIE":
+                print "hello"
+                auto_drive = True
+            else:
+                auto_drive = False
 
 
 # Take the latest image and run a regression neural network on it
 def compute_steering_angle():
+    global last_steering_angle
+
     # A list that contains all correctly formatted image files in the temp folder
     file_list = [f for f in listdir(image_folder) if "sim" in f and ".jpg" in f]
     for file in file_list:
@@ -62,9 +73,11 @@ def compute_steering_angle():
                 file_list.remove(old_file)
                 system('rm -f %s/%s' % (image_folder, old_file))
 
-    # We want to use the latest file
-    newest_file = "%s/%s" % (image_folder, file_list[0])
-    print newest_file
+    try:
+        # We want to use the latest file
+        newest_file = "%s/%s" % (image_folder, file_list[0])
+    except Exception:
+        return last_steering_angle
 
     # Read the file from disk as a 32-bit floating point tensor
     image_raw = imread(newest_file).astype(np.float32)
@@ -74,12 +87,16 @@ def compute_steering_angle():
     image = np.expand_dims(image_3d, 0)
 
     # Make a prediction with the model
-    return model.predict(image)
+    last_steering_angle = model.predict(image)[0, 0]
+    return last_steering_angle
 
 
 # Save images in folder provided as a command line argument
 image_folder = "/tmp/"
 archive_folder = argv[1]
+
+# Clear the image folder
+system('rm -f %s/sim*.jpg' % image_folder)
 
 # Configure the webcam
 system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_auto=3')
@@ -118,10 +135,10 @@ while True:
     if auto_drive:
         # Encoder cannot be recorded when auto drive is enabled
         recording_encoder = False
-        print "load5"
         steering_angle = compute_steering_angle()  
         print steering_angle
 
+    print auto_drive
     # Compose values for transfer to robot controller into a single string
     values_to_jetson = (int(recording_encoder), int(auto_drive), steering_angle)
     values_str = ''
