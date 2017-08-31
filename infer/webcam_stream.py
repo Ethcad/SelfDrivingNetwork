@@ -1,14 +1,28 @@
 #!/usr/bin/env python2
 
+# Basic OS libraries
 from os import system, popen, listdir
 from sys import argv
-from time import time
+from time import time, sleep
+
+# Secure shell
 from libssh2 import Session
 from socket import socket, AF_INET, SOCK_STREAM
+
+# Vision and image processing
+import numpy as np
+from scipy.misc import imread
+
+# Machine learning
+from keras.models import load_model
+
+# Threading and input handling
 from threading import Thread
 from evdev import InputDevice, categorize, ecodes, KeyEvent
 
 recording_encoder = False
+auto_drive = True
+last_max_file = -1
 
 
 # Parallel thread that accepts joystick input and sets a global flag
@@ -31,6 +45,37 @@ def handle_gamepad_input():
                 recording_encoder = True
             elif key_event.keycode == "BTN_THUMB2":
                 recording_encoder = False
+
+
+# Take the latest image and run a regression neural network on it
+def compute_steering_angle():
+    # A list that contains all correctly formatted image files in the temp folder
+    file_list = [f for f in listdir(image_folder) if "sim" in f and ".jpg" in f]
+    for file in file_list:
+        # Loop over a copy of the list
+        for old_file in file_list[:]:
+            # Compare the index of the current image and an image from the rest of the list
+            current_index = int(file[3:-4])
+            old_index = int(old_file[3:-4])
+            # IF there is an image that has a lower index than the current one, delete it
+            if old_index < current_index:
+                file_list.remove(old_file)
+                system('rm -f %s/%s' % (image_folder, old_file))
+
+    # We want to use the latest file
+    newest_file = "%s/%s" % (image_folder, file_list[0])
+    print newest_file
+
+    # Read the file from disk as a 32-bit floating point tensor
+    image_raw = imread(newest_file).astype(np.float32)
+
+    # Rearrange the dimeensions and add an extra one (used for batch stacking by Keras)
+    image_3d = np.transpose(image_raw, (1, 0, 2))
+    image = np.expand_dims(image_3d, 0)
+
+    # Make a prediction with the model
+    return model.predict(image)
+
 
 # Save images in folder provided as a command line argument
 image_folder = "/tmp/"
@@ -60,12 +105,25 @@ thread = Thread(target=handle_gamepad_input)
 thread.daemon = True
 thread.start()
 
+# Load the machine learning model
+model = load_model(argv[2])
+
+# Wait for gstreamer to start saving images to disk
+sleep(1)
+
 # Loop forever, recording steering angle data along with images
-i = 0
 while True:
-    i += 1
+    # If auto drive is enabled, call the function to compute the steering angle
+    steering_angle = 0.0
+    if auto_drive:
+        # Encoder cannot be recorded when auto drive is enabled
+        recording_encoder = False
+        print "load5"
+        steering_angle = compute_steering_angle()  
+        print steering_angle
+
     # Compose values for transfer to robot controller into a single string
-    values_to_jetson = (int(recording_encoder), 0, i)
+    values_to_jetson = (int(recording_encoder), int(auto_drive), steering_angle)
     values_str = ''
     for value in values_to_jetson:
         values_str += (str(value) + '\n')
@@ -82,7 +140,6 @@ while True:
         stdout = channel.read(1024)
 
         # Loop over SSH output
-        last_max_file = -1
         for line in stdout.split("\n"):
             # Only one iteration should occur each time because the input should have just one line containing 'out'
             if 'out' in line:
@@ -109,7 +166,7 @@ while True:
 
                 # Set the previous image counter to the current image's timestamp
                 last_max_file = max_file
-    else:
+    elif not auto_drive:
         # If we are not recording, constantly clear the image folder
         system('rm -f %s/sim*.jpg' % image_folder)
 
