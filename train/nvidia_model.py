@@ -1,7 +1,10 @@
 from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Flatten
+from keras.layers import Dense, Flatten, BatchNormalization
 from keras.optimizers import Adadelta
+from keras.optimizers import Adagrad
+from keras.optimizers import SGD
+from keras.optimizers import Adam
+from keras.layers import Dropout
 from keras.layers.convolutional import Conv2D
 
 
@@ -10,9 +13,14 @@ def nvidia_model():
     activation = 'relu'
 
     # Create the model used by NVIDIA in 'End-to-End Learning for Self-Driving Cars'
+    # With a different image size (320 by 180)
     model = Sequential()
+    model.add(BatchNormalization(
+        epsilon=0.001,
+        axis=1,
+        input_shape=(200, 66, 3)
+    ))
     model.add(Conv2D(
-        input_shape=(200, 66, 3),
         filters=24,
         kernel_size=5,
         strides=2,
@@ -38,7 +46,7 @@ def nvidia_model():
     model.add(Conv2D(
         filters=64,
         kernel_size=3,
-        activation=activation,
+        activation=activation
     ))
     model.add(Flatten())
     model.add(Dense(100, activation=activation))

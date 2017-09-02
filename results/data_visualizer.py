@@ -7,7 +7,7 @@ from cv2 import imread
 from scipy.misc import imresize
 from keras.models import load_model
 from numpy import float32, transpose, expand_dims
-from PyQt5.QtWidgets import QLabel, QWidget, QApplication
+from PyQt5.QtWidgets import QLabel, QWidget, QApplication, QPushButton
 from PyQt5.QtGui import QPixmap, QPalette, QImage, QTransform, QFont, QPainter, QColor, QPen
 from PyQt5.QtCore import Qt, QTimer
 
@@ -21,12 +21,13 @@ class DataVisualizer(QWidget):
     STEERING_WHEEL_COEFFICIENT = 360
 
     # Parameters for the low-pass filter
-    LOW_PASS_VECTOR = [1.0, 0.7, 0.4, 0.3, 0.2]
+    LOW_PASS_VECTOR = [1.0, 0.5]
 
     # UI elements and counters
     video_display = None
     current_frame = 0
     num_frames = None
+    frame_counter = None
 
     # Images and corresponding steering angles
     loaded_images = []
@@ -102,11 +103,48 @@ class DataVisualizer(QWidget):
         self.setWindowTitle('Training Data Visualizer')
         self.setPalette(palette)
 
+        # Generate the buttons that handle skipping forward and backward
+        skip_button_values = [-1000, -100, 100, 1000]
+        for i in range(len(skip_button_values)):
+
+            skip_value = skip_button_values[i]
+
+            # Generate a function to skip forward or backward by frames
+            def make_skip_function(frames):
+                # Internal function for return
+                def skip_frames():
+                    self.current_frame += frames
+                    self.red_line_points = []
+                    self.green_line_points = []
+
+                return skip_frames
+
+            # Define the attributes of the button
+            skip_button = QPushButton(self)
+            skip_button.setFont(small_font)
+            skip_button.setText("Skip %d" % skip_value)
+            skip_button.clicked.connect(make_skip_function(skip_value))
+            skip_button.setFixedSize(190, 40)
+
+            # Calculate the X position of the button
+            x_pos = (200 * i) + 10
+            if skip_value > 0:
+                x_pos += 800
+
+            skip_button.move(x_pos, 810)
+
+        # Initialize the label that shows the frame we are currently on
+        self.frame_counter = QLabel(self)
+        self.frame_counter.setAlignment(Qt.AlignCenter)
+        self.frame_counter.setFont(small_font)
+        self.frame_counter.setFixedSize(290, 40)
+        self.frame_counter.move(1620, 810)
+
         # Initialize the label at the bottom that display low pass filter parameters and standard deviation
         std_dev_label = QLabel(self)
         std_dev_label.setAlignment(Qt.AlignCenter)
-        std_dev_label.setFixedSize(1600, 40)
-        std_dev_label.move(10, 810)
+        std_dev_label.setFixedSize(800, 40)
+        std_dev_label.move(410, 810)
         std_dev_label.setFont(small_font)
         std_dev_label.setText('Low pass filter parameters: %s              Standard deviation over whole run: %f'
                               % (self.LOW_PASS_VECTOR, standard_deviation))
@@ -233,8 +271,11 @@ class DataVisualizer(QWidget):
         image_index = self.current_frame % self.num_frames
         self.current_frame += 1
 
+        # Update the label that displays the current frame
+        self.frame_counter.setText("Frame %d / %d" % (image_index, self.num_frames))
+
         # Upscale a loaded image and display it
-        frame = imresize(self.loaded_images[image_index], 8.0, interp='nearest')
+        frame = imresize(self.loaded_images[image_index], 4.0, interp='nearest')
         image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_RGB888).rgbSwapped()
         pix = QPixmap.fromImage(image)
         self.video_display.setPixmap(pix)

@@ -7,7 +7,7 @@ from keras.layers.convolutional import MaxPooling2D
 from keras.layers.convolutional import ZeroPadding2D
 
 
-def more_filters_model(blocks):
+def more_filters_model(blocks, width, height):
     # Rectified linear activation function
     activation = 'relu'
 
@@ -18,7 +18,7 @@ def more_filters_model(blocks):
     model = Sequential()
 
     # Input layer which does nothing
-    model.add(ZeroPadding2D(input_shape=(200, 66, 3), padding=0))
+    model.add(ZeroPadding2D(input_shape=(width, height, 3), padding=0))
 
     # Iterate over blocks matrix which contains the number of filters and number of convolutional layers for each block
     # as well as a flag telling us whether a pooling layer should be included or not
