@@ -68,7 +68,7 @@ def compute_steering_angle():
             # Compare the index of the current image and an image from the rest of the list
             current_index = int(file[3:-4])
             old_index = int(old_file[3:-4])
-            # IF there is an image that has a lower index than the current one, delete it
+            # If there is an image that has a lower index than the current one, delete it
             if old_index < current_index:
                 file_list.remove(old_file)
                 system('rm -f %s/%s' % (image_folder, old_file))
@@ -81,6 +81,9 @@ def compute_steering_angle():
 
     # Read the file from disk as a 32-bit floating point tensor
     image_raw = imread(newest_file).astype(np.float32)
+
+    # Move the newest file to the archive directory
+    system("mv %s %s" % (newest_file, archive_folder))
 
     # Rearrange the dimeensions and add an extra one (used for batch stacking by Keras)
     image_3d = np.transpose(image_raw, (1, 0, 2))
@@ -138,7 +141,6 @@ while True:
         steering_angle = compute_steering_angle()  
         print steering_angle
 
-    print auto_drive
     # Compose values for transfer to robot controller into a single string
     values_to_jetson = (int(recording_encoder), int(auto_drive), steering_angle)
     values_str = ''
