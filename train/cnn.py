@@ -17,10 +17,9 @@ from more_filters_model import more_filters_model
 from infinite_stack_model import infinite_stack_model
 
 
-EPOCHS = 50
-BATCH_SIZE = 1
+EPOCHS = 150
+BATCH_SIZE = 5
 VAL_PROPORTION = 0.1
-START_TIME = int(time())
 
 
 def get_data(file_path, should_convert, num_images):
@@ -100,8 +99,6 @@ def should_convert_data_set():
         print("Not converting labels.")
     return should_convert
 
-# Create a directory for snapshots to be saved in
-makedirs("../model/%d" % START_TIME)
 
 # Select the number of images to cut out of the data set
 num_images = 0
@@ -132,11 +129,17 @@ models = [
 #        (128, 3, False)
 #    ],
 #    320, 180)
-    nvidia_model()
+#    nvidia_model(False),
+    nvidia_model(True),
 ]
 
 # Train each network with the same set of images, save the trained model, and print results
 for i in range(len(models)):
+    start_time = int(time())
+
+    # Create a directory for snapshots to be saved in
+    makedirs("../model/%d" % start_time)
+
     print("\nSummary of model #%d:" % i)
     print(models[i].summary())
 
@@ -146,5 +149,5 @@ for i in range(len(models)):
         validation_data=(images_val_t, labels_val),
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        callbacks=[ModelCheckpoint("../model/%d/epoch={epoch:02d}-val_loss={val_loss:f}.h5" % START_TIME)]
+        callbacks=[ModelCheckpoint("../model/%d/epoch={epoch:02d}-val_loss={val_loss:f}.h5" % start_time)]
     )
