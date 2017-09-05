@@ -275,7 +275,7 @@ class DataVisualizer(QWidget):
         self.frame_counter.setText("Frame %d / %d" % (image_index, self.num_frames))
 
         # Upscale a loaded image and display it
-        frame = imresize(self.loaded_images[image_index], 4.0, interp='nearest')
+        frame = imresize(self.loaded_images[image_index], 8.0, interp='nearest')
         image = QImage(frame, frame.shape[1], frame.shape[0], QImage.Format_RGB888).rgbSwapped()
         pix = QPixmap.fromImage(image)
         self.video_display.setPixmap(pix)

@@ -12,6 +12,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 # Vision and image processing
 import numpy as np
 from scipy.misc import imread
+from scipy.ndimage.interpolation import zoom
 
 # Machine learning
 from keras.models import load_model
@@ -85,9 +86,10 @@ def compute_steering_angle():
     # Move the newest file to the archive directory
     system("mv %s %s" % (newest_file, archive_folder))
 
-    # Rearrange the dimeensions and add an extra one (used for batch stacking by Keras)
+    # Resize the image, rearrange the dimensions and add an extra one (used for batch stacking by Keras)
     image_3d = np.transpose(image_raw, (1, 0, 2))
-    image = np.expand_dims(image_3d, 0)
+    image_small = zoom(image_3d, (0.625, 0.625, 1.0))[:, 47:, :]
+    image = np.expand_dims(image_small, 0)
 
     # Make a prediction with the model
     last_steering_angle = model.predict(image)[0, 0]
@@ -126,6 +128,7 @@ thread.daemon = True
 thread.start()
 
 # Load the machine learning model
+model = load_model(argv[2])
 model = load_model(argv[2])
 
 # Wait for gstreamer to start saving images to disk
