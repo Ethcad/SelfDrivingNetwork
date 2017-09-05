@@ -21,7 +21,7 @@ class DataVisualizer(QWidget):
     STEERING_WHEEL_COEFFICIENT = 360
 
     # Parameters for the low-pass filter
-    LOW_PASS_VECTOR = [1.0, 0.5]
+    LOW_PASS_VECTOR = [1.0]
 
     # UI elements and counters
     video_display = None
