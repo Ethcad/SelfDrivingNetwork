@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Basic OS libraries
 from os import system, popen, listdir
@@ -11,7 +11,7 @@ from socket import socket, AF_INET, SOCK_STREAM
 
 # Vision and image processing
 import numpy as np
-from scipy.misc import imread
+from scipy.misc import imread, imsave
 from scipy.ndimage.interpolation import zoom
 
 # Machine learning
@@ -44,21 +44,20 @@ def handle_gamepad_input():
             key_event = categorize(event)
             keycode = key_event.keycode
 
-            print keycode
+            print(keycode)
             # Set the global flag to true if the A button was pressed, false if B was pressed
             if keycode == "BTN_THUMB":
                 recording_encoder = True
             elif keycode == "BTN_THUMB2":
                 recording_encoder = False
             elif keycode == "BTN_PINKIE":
-                print "hello"
                 auto_drive = True
             else:
                 auto_drive = False
 
 
 # Take the latest image and run a regression neural network on it
-def compute_steering_angle():
+def compute_steering_angle(high_crop):
     global last_steering_angle
 
     # A list that contains all correctly formatted image files in the temp folder
@@ -88,8 +87,13 @@ def compute_steering_angle():
 
     # Resize the image, rearrange the dimensions and add an extra one (used for batch stacking by Keras)
     image_3d = np.transpose(image_raw, (1, 0, 2))
-    image_small = zoom(image_3d, (0.625, 0.625, 1.0))[:, 47:, :]
-    image = np.expand_dims(image_small, 0)
+    image_small = zoom(image_3d, (0.625, 0.625, 1.0))
+    image_cropped = None
+    if high_crop:
+        image_cropped = image_small[:, 30:-17, :]
+    else:
+        image_cropped = image_small[:, 47:, :]
+    image = np.expand_dims(image_cropped, 0)
 
     # Make a prediction with the model
     last_steering_angle = model.predict(image)[0, 0]
@@ -141,8 +145,8 @@ while True:
     if auto_drive:
         # Encoder cannot be recorded when auto drive is enabled
         recording_encoder = False
-        steering_angle = compute_steering_angle()  
-        print steering_angle
+        steering_angle = compute_steering_angle(argv[3] == "hc") 
+        print(steering_angle)
 
     # Compose values for transfer to robot controller into a single string
     values_to_jetson = (int(recording_encoder), int(auto_drive), steering_angle)
