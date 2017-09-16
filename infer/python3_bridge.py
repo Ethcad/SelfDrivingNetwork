@@ -50,8 +50,12 @@ print('ready')
 # Loop forever, waiting for input on each iteration
 while True:
 
-    # Get the fully qualified file path of an image from standard input
-    image_path = os.path.expanduser(input())
+    # Contains the path of the image
+    image_path = None
+
+    # Get the fully qualified file path of an image from a temp file
+    with open('/tmp/drive.path') as path_file:
+        image_path = os.path.expanduser(path_file.read().strip())
 
     # Read the file from disk as a 32-bit floating point tensor
     image_raw = imread(image_path).astype(np.float32)
@@ -74,4 +78,9 @@ while True:
 
     # Calculate a steering angle from the lines with the steering engine
     steering_angle = steering_engine.compute_steering_angle(*lines)
-    print('angle', steering_angle)
+
+    # Write the angle to a file
+    with open('/tmp/drive.angle', 'w') as angle_file:
+        angle_file.write(str(steering_angle))
+    print('test')
+

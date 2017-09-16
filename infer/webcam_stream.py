@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 # Basic OS libraries
 from os import system, popen, listdir
@@ -8,14 +8,6 @@ from time import time, sleep
 # Secure shell
 from libssh2 import Session
 from socket import socket, AF_INET, SOCK_STREAM
-
-# Vision and image processing
-import numpy as np
-from scipy.misc import imread, imsave
-from scipy.ndimage.interpolation import zoom
-
-# Machine learning
-from keras.models import load_model
 
 # Threading and input handling
 from threading import Thread
@@ -57,7 +49,7 @@ def handle_gamepad_input():
 
 
 # Take the latest image and run a regression neural network on it
-def compute_steering_angle(high_crop):
+def compute_steering_angle():
     global last_steering_angle
 
     # A list that contains all correctly formatted image files in the temp folder
@@ -79,26 +71,14 @@ def compute_steering_angle(high_crop):
     except Exception:
         return last_steering_angle
 
-    # Read the file from disk as a 32-bit floating point tensor
-    image_raw = imread(newest_file).astype(np.float32)
+    # Write the newest file's path to a temp file
+    with open("/tmp/drive.path", "w") as path_file:
+        path_file.write(newest_file)
 
     # Move the newest file to the archive directory
     system("mv %s %s" % (newest_file, archive_folder))
 
-    # Resize the image, rearrange the dimensions and add an extra one (used for batch stacking by Keras)
-    image_3d = np.transpose(image_raw, (1, 0, 2))
-    image_small = zoom(image_3d, (0.625, 0.625, 1.0))
-    image_cropped = None
-    if high_crop:
-        image_cropped = image_small[:, 30:-17, :]
-    else:
-        image_cropped = image_small[:, 47:, :]
-    image = np.expand_dims(image_cropped, 0)
-
-    # Make a prediction with the model
-    last_steering_angle = model.predict(image)[0, 0]
     return last_steering_angle
-
 
 # Save images in folder provided as a command line argument
 image_folder = "/tmp/"
@@ -114,6 +94,9 @@ system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_absolute=250')
 
 # Start the camera capture daemon process from the command line
 system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="%s/sim%%d.jpg" &' % image_folder)
+
+# Start the nasty image-classifying thread
+system('./python3_bridge.py ~/sliding-window-model/white-line.h5 ~/sliding-window-model/yellow-line.h5 &')
 
 # Open an SSH session to the robot controller
 sock = socket(AF_INET, SOCK_STREAM)
@@ -131,10 +114,6 @@ thread = Thread(target=handle_gamepad_input)
 thread.daemon = True
 thread.start()
 
-# Load the machine learning model
-model = load_model(argv[2])
-model = load_model(argv[2])
-
 # Wait for gstreamer to start saving images to disk
 sleep(1)
 
@@ -145,7 +124,7 @@ while True:
     if auto_drive:
         # Encoder cannot be recorded when auto drive is enabled
         recording_encoder = False
-        steering_angle = compute_steering_angle(argv[3] == "hc") 
+        steering_angle = compute_steering_angle() 
         print(steering_angle)
 
     # Compose values for transfer to robot controller into a single string
