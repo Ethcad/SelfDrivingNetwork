@@ -1,8 +1,8 @@
 #!/usr/bin/env python2
 
 # Basic OS libraries
-from os import system, popen, listdir
 from sys import argv
+from os import system, popen, listdir, path
 from time import time, sleep
 
 # Secure shell
@@ -13,7 +13,10 @@ from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 from evdev import InputDevice, categorize, ecodes, KeyEvent
 
-# Steering and image processing engines
+# Steering and image processing
+import numpy as np
+from scipy.misc import imread
+from keras.models import load_model
 from LaneDetection.infer import SteeringEngine, SlidingWindowInferenceEngine
 
 recording_encoder = False
@@ -78,7 +81,7 @@ def compute_steering_angle():
 
     # Resize the image, rearrange the dimensions and add an extra one for batch stacking
     image_transpose = np.transpose(image_raw, (1, 0, 2))
-    image_cropped = image_transpose[:, 40:-80, :]
+    image_cropped = image_transpose[40:-40, 60:-60, :]
 
     # List containing yellow line and white line
     lines = []
@@ -95,6 +98,9 @@ def compute_steering_angle():
     # Calculate a steering angle from the lines with the steering engine
     steering_angle = steering_engine.compute_steering_angle(*lines)
 
+    # Print out the steering angle
+    print(steering_angle)
+
     # Move the newest file to the archive directory
     system("mv %s %s" % (newest_file, archive_folder))
 
@@ -106,6 +112,36 @@ def compute_steering_angle():
 # Save images in folder provided as a command line argument
 image_folder = "/tmp/"
 archive_folder = argv[1]
+
+# List of two inference engines, one for each line
+inference_engines = []
+
+# For each of the two models passed as command line arguments
+for arg in argv[2:]:
+
+    # Format the fully qualified path of the trained model
+    model_path = path.expanduser(arg)
+
+    # Load the model from disk
+    model = load_model(model_path)
+
+    # Create an inference engine
+    inference_engine = SlidingWindowInferenceEngine(
+        model=model,
+        window_size=16,
+        stride=8
+    )
+
+    # Add the inference engine to the list
+    inference_engines.append(inference_engine)
+
+# Create a steering engine
+steering_engine = SteeringEngine(
+    max_average_variation=20,
+    steering_multiplier=0.001,
+    ideal_center_x=120,
+    steering_limit=0.2
+)
 
 # Clear the image folder
 system('rm -f %s/sim*.jpg' % image_folder)
@@ -120,9 +156,6 @@ system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, he
 
 # Create the data transfer temp file
 system('touch /tmp/drive.path')
-
-# Start the nasty image-classifying thread
-system('./start_classifier.sh &')
 
 # Open an SSH session to the robot controller
 sock = socket(AF_INET, SOCK_STREAM)
