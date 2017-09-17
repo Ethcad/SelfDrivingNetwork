@@ -4,8 +4,9 @@ import os
 import sys
 import numpy as np
 
+from time import sleep
 from keras.models import load_model
-from scipy.misc import imread
+from cv2 import imread
 from scipy.ndimage.interpolation import zoom
 from LaneDetection.infer.steering_engine import SteeringEngine
 from LaneDetection.infer.sliding_window_inference_engine import SlidingWindowInferenceEngine
@@ -24,6 +25,7 @@ for arg in sys.argv[1:]:
     # Format the fully qualified path of the trained model
     model_path = os.path.expanduser(arg)
 
+    print(model_path)
     # Load the model from disk
     model = load_model(model_path)
 
@@ -41,7 +43,8 @@ for arg in sys.argv[1:]:
 steering_engine = SteeringEngine(
     max_average_variation=20,
     steering_multiplier=0.1,
-    ideal_center_x=160
+    ideal_center_x=160,
+    steering_limit=0.2
 )
 
 # Notify the webcam streaming program that we have finished loading
@@ -57,7 +60,8 @@ while True:
     with open('/tmp/drive.path') as path_file:
         image_path = os.path.expanduser(path_file.read().strip())
 
-    # Read the file from disk as a 32-bit floating point tensor
+    # Try to read the file from disk as a 32-bit floating point tensor
+    print(image_path)
     image_raw = imread(image_path).astype(np.float32)
 
     # Resize the image, rearrange the dimensions and add an extra one (used for batch stacking by Keras)

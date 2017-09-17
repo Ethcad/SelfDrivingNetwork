@@ -36,7 +36,6 @@ def handle_gamepad_input():
             key_event = categorize(event)
             keycode = key_event.keycode
 
-            print(keycode)
             # Set the global flag to true if the A button was pressed, false if B was pressed
             if keycode == "BTN_THUMB":
                 recording_encoder = True
@@ -71,12 +70,12 @@ def compute_steering_angle():
     except Exception:
         return last_steering_angle
 
-    # Write the newest file's path to a temp file
-    with open("/tmp/drive.path", "w") as path_file:
-        path_file.write(newest_file)
-
     # Move the newest file to the archive directory
     system("mv %s %s" % (newest_file, archive_folder))
+
+    # Write the newest file's path to a temp file
+    with open("/tmp/drive.path", "w") as path_file:
+        path_file.write('%s/%s' % (archive_folder, file_list[0]))
 
     return last_steering_angle
 
@@ -95,8 +94,11 @@ system('v4l2-ctl -d /dev/video1 --set-ctrl=exposure_absolute=250')
 # Start the camera capture daemon process from the command line
 system('gst-launch-1.0 -v v4l2src device=/dev/video1 ! image/jpeg, width=320, height=180, framerate=30/1 ! jpegparse ! multifilesink location="%s/sim%%d.jpg" &' % image_folder)
 
+# Create the data transfer temp file
+system('touch /tmp/drive.path')
+
 # Start the nasty image-classifying thread
-system('./python3_bridge.py ~/sliding-window-model/white-line.h5 ~/sliding-window-model/yellow-line.h5 &')
+system('./start_classifier.sh &')
 
 # Open an SSH session to the robot controller
 sock = socket(AF_INET, SOCK_STREAM)
@@ -125,7 +127,6 @@ while True:
         # Encoder cannot be recorded when auto drive is enabled
         recording_encoder = False
         steering_angle = compute_steering_angle() 
-        print(steering_angle)
 
     # Compose values for transfer to robot controller into a single string
     values_to_jetson = (int(recording_encoder), int(auto_drive), steering_angle)
