@@ -13,6 +13,9 @@ from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 from evdev import InputDevice, categorize, ecodes, KeyEvent
 
+# Steering and image processing engines
+from LaneDetection.infer import SteeringEngine, SlidingWindowInferenceEngine
+
 recording_encoder = False
 auto_drive = False
 last_max_file = -1
@@ -70,14 +73,35 @@ def compute_steering_angle():
     except Exception:
         return last_steering_angle
 
+    # Load the image
+    image_raw = imread(newest_file)
+
+    # Resize the image, rearrange the dimensions and add an extra one for batch stacking
+    image_transpose = np.transpose(image_raw, (1, 0, 2))
+    image_cropped = image_transpose[:, 40:-80, :]
+
+    # List containing yellow line and white line
+    lines = []
+
+    # With each inference engine
+    for inference_engine in inference_engines:
+
+        # Find points on the line that the current engine is trained to detect
+        line = inference_engine.infer(image_cropped)
+
+        # Add the current line to the list of lines
+        lines.append(line)
+
+    # Calculate a steering angle from the lines with the steering engine
+    steering_angle = steering_engine.compute_steering_angle(*lines)
+
     # Move the newest file to the archive directory
     system("mv %s %s" % (newest_file, archive_folder))
 
-    # Write the newest file's path to a temp file
-    with open("/tmp/drive.path", "w") as path_file:
-        path_file.write('%s/%s' % (archive_folder, file_list[0]))
+    # Set the last steering angle
+    last_steering_angle = steering_angle
 
-    return last_steering_angle
+    return steering_angle
 
 # Save images in folder provided as a command line argument
 image_folder = "/tmp/"
