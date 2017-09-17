@@ -96,13 +96,13 @@ def compute_steering_angle():
         lines.append(line)
 
     # Calculate a steering angle from the lines with the steering engine
-    steering_angle = steering_engine.compute_steering_angle(*lines)
+    steering_angle, error = steering_engine.compute_steering_angle(*lines)
 
     # Print out the steering angle
     print(steering_angle)
 
     # Move the newest file to the archive directory
-    system("mv %s %s" % (newest_file, archive_folder))
+    system("mv %s %s/%s.error%s.angle%s.jpg" % (newest_file, archive_folder, file_list[0], error, steering_angle))
 
     # Set the last steering angle
     last_steering_angle = steering_angle
