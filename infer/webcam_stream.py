@@ -73,15 +73,15 @@ def compute_steering_angle():
     try:
         # We want to use the latest file
         newest_file = "%s/%s" % (image_folder, file_list[0])
-    except Exception:
+    except:
+        print('that error')
         return last_steering_angle
 
     # Load the image
     image_raw = imread(newest_file)
 
     # Resize the image, rearrange the dimensions and add an extra one for batch stacking
-    image_transpose = np.transpose(image_raw, (1, 0, 2))
-    image_cropped = image_transpose[40:-40, 60:-60, :]
+    image_cropped = image_raw[60:-60]
 
     # List containing yellow line and white line
     lines = []
@@ -95,11 +95,12 @@ def compute_steering_angle():
         # Add the current line to the list of lines
         lines.append(line)
 
-    # Calculate a steering angle from the lines with the steering engine
-    steering_angle, error = steering_engine.compute_steering_angle(*lines)
-
-    # Print out the steering angle
-    print(steering_angle)
+    try:
+        # Calculate a steering angle from the lines with the steering engine
+        steering_angle, error = steering_engine.compute_steering_angle(*lines)
+    except:
+        return last_steering_angle
+        print('error')
 
     # Move the newest file to the archive directory
     system("mv %s %s/%s.error%s.angle%s.jpg" % (newest_file, archive_folder, file_list[0], error, steering_angle))
@@ -138,8 +139,8 @@ for arg in argv[2:]:
 # Create a steering engine
 steering_engine = SteeringEngine(
     max_average_variation=20,
-    steering_multiplier=0.001,
-    ideal_center_x=120,
+    steering_multiplier=0.005,
+    ideal_center_x=160,
     steering_limit=0.2
 )
 
@@ -183,7 +184,10 @@ while True:
     if auto_drive:
         # Encoder cannot be recorded when auto drive is enabled
         recording_encoder = False
-        steering_angle = compute_steering_angle() 
+        steering_angle = -compute_steering_angle() 
+
+        # Print out the steering angle
+        print(steering_angle)
 
     # Compose values for transfer to robot controller into a single string
     values_to_jetson = (int(recording_encoder), int(auto_drive), steering_angle)
