@@ -129,7 +129,7 @@ for arg in argv[2:]:
     # Create an inference engine
     inference_engine = SlidingWindowInferenceEngine(
         model=model,
-        window_size=16,
+        slice_size=16,
         stride=(8, 8)
     )
 
@@ -141,6 +141,7 @@ steering_engine = SteeringEngine(
     max_average_variation=20,
     steering_multiplier=0.0025,
     ideal_center_x=180,
+    center_y=20,
     steering_limit=0.2
 )
 
