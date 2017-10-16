@@ -18,6 +18,7 @@ import numpy as np
 from scipy.misc import imread
 from keras.models import load_model
 from LaneDetection.infer import SteeringEngine, SlidingWindowInferenceEngine
+from LaneDetection.infer.lane_center_calculation import calculate_lane_center_positions
 
 recording_encoder = False
 auto_drive = False
@@ -84,26 +85,27 @@ def compute_steering_angle():
     image_cropped = image_raw[60:-60]
 
     # List containing yellow line and white line
-    lines = []
+    prediction_tensors = [inference_engine.infer(image_cropped) for inference_engine in inference_engines]
 
-    # With each inference engine
-    for inference_engine in inference_engines:
+    # Calculate the center line positions and add them to the list
+    center_line_positions, outer_road_lines = calculate_lane_center_positions(
+        left_line_prediction_tensor=prediction_tensors[0],
+        right_line_prediction_tensor=prediction_tensors[1],
+        minimum_prediction_confidence=0.9,
+        original_image_shape=image_cropped.shape,
+        window_size=inference_engines[0].window_size
+    )
 
-        # Find points on the line that the current engine is trained to detect
-        line = inference_engine.infer(image_cropped)
-
-        # Add the current line to the list of lines
-        lines.append(line)
-
+    # Calculate a steering angle from the lines with the steering engine
     try:
-        # Calculate a steering angle from the lines with the steering engine
-        steering_angle, error = steering_engine.compute_steering_angle(*lines)
+        print center_line_positions
+        steering_angle, error, slope = steering_engine.compute_steering_angle(center_line_positions)
     except:
+        print 'fail'
         return last_steering_angle
-        print('error')
 
     # Move the newest file to the archive directory
-    system("mv %s %s/%s.error%s.angle%s.jpg" % (newest_file, archive_folder, file_list[0], error, steering_angle))
+    system("mv %s %s/%s.error%s.slope%s.angle%s.jpg" % (newest_file, archive_folder, file_list[0], error, slope, steering_angle))
 
     # Set the last steering angle
     last_steering_angle = steering_angle
@@ -130,7 +132,7 @@ for arg in argv[2:]:
     inference_engine = SlidingWindowInferenceEngine(
         model=model,
         slice_size=16,
-        stride=(8, 8)
+        stride=(4, 4)
     )
 
     # Add the inference engine to the list
@@ -138,9 +140,11 @@ for arg in argv[2:]:
 
 # Create a steering engine
 steering_engine = SteeringEngine(
-    max_average_variation=20,
-    steering_multiplier=0.0025,
-    ideal_center_x=180,
+    proportional_multiplier=0.0025,
+    derivative_multiplier=0,
+    max_distance_from_line=10,
+    ideal_center_x=190,
+    center_y=0,
     steering_limit=0.2
 )
 
