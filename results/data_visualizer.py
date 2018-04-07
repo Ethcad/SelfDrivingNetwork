@@ -306,19 +306,21 @@ class DataVisualizer(QWidget):
 
         # Draw a jagged line over a list of points
         def paint_line(point_list, color):
-            # Configure the line color and width
-            pen = QPen()
-            pen.setColor(color)
-            pen.setWidth(3)
-            painter.setPen(pen)
+            # Check if there are any points to be drawn
+            if point_list:
+                # Configure the line color and width
+                pen = QPen()
+                pen.setColor(color)
+                pen.setWidth(3)
+                painter.setPen(pen)
 
-            # Iterate over the points and draw a line between each consecutive pair
-            previous_point = point_list[0]
-            for i in range(1, len(point_list)):
-                current_point = point_list[i]
-                line_parameters = current_point + previous_point
-                painter.drawLine(*line_parameters)
-                previous_point = current_point
+                # Iterate over the points and draw a line between each consecutive pair
+                previous_point = point_list[0]
+                for i in range(1, len(point_list)):
+                    current_point = point_list[i]
+                    line_parameters = current_point + previous_point
+                    painter.drawLine(*line_parameters)
+                    previous_point = current_point
 
         # Calculate the Y points on the graph for steering angles of -0.1, 0.0, and 0.1 respectively
         y_0_1 = self.get_line_graph_y_position(-0.1)
